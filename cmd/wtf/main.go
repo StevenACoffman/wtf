@@ -34,13 +34,14 @@ func main() {
 
 	// Execute program.
 	//
-	// If an ErrHelp error is returned then that means the user has used an "-h"
-	// flag and the flag package will handle output. We just need exit.
+	// If an ErrHelp error is returned then the user asked for help with "-h"
+	// and the flag package has already printed usage. A help request is a
+	// successful invocation, so exit zero.
 	//
 	// If we have an application error (wtf.Error) then we can just display the
 	// message. If we have any other error, print the raw error message.
 	if err := Run(ctx, os.Args[1:]); errors.Is(err, flag.ErrHelp) {
-		os.Exit(1)
+		os.Exit(0)
 	} else if e, ok := errors.AsType[*wtf.Error](err); ok {
 		fmt.Fprintln(os.Stderr, e.Message)
 		os.Exit(1)

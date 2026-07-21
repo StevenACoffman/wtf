@@ -24,15 +24,15 @@ func (c *DialDeleteCommand) Run(ctx context.Context, args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	} else if fs.NArg() == 0 {
-		return errors.New("Dial ID required.")
+		return errors.New("wtf dial delete: dial ID required")
 	} else if fs.NArg() > 1 {
-		return errors.New("Only one dial dial ID allowed.")
+		return errors.New("wtf dial delete: only one dial ID allowed")
 	}
 
 	// Parse the dial ID from the first arg.
 	id, err := strconv.Atoi(fs.Arg(0))
 	if err != nil {
-		return errors.New("Invalid dial ID.")
+		return errors.New("wtf dial delete: invalid dial ID")
 	}
 
 	// Load configuration file.

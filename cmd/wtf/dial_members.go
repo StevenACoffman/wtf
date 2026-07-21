@@ -24,15 +24,15 @@ func (c *DialMembersCommand) Run(ctx context.Context, args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	} else if fs.NArg() == 0 {
-		return errors.New("Dial ID required.")
+		return errors.New("wtf dial members: dial ID required")
 	} else if fs.NArg() > 1 {
-		return errors.New("Only one dial ID allowed.")
+		return errors.New("wtf dial members: only one dial ID allowed")
 	}
 
 	// Parse dial ID from first arg.
 	id, err := strconv.Atoi(fs.Arg(0))
 	if err != nil {
-		return errors.New("Invalid dial ID.")
+		return errors.New("wtf dial members: invalid dial ID")
 	}
 
 	// Load configuration file.
