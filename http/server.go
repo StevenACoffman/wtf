@@ -15,6 +15,9 @@ import (
 	"time"
 
 	"github.com/benbjohnson/hashfs"
+	"github.com/benbjohnson/wtf"
+	"github.com/benbjohnson/wtf/http/assets"
+	"github.com/benbjohnson/wtf/http/html"
 	"github.com/gorilla/securecookie"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -22,10 +25,6 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
-
-	"github.com/benbjohnson/wtf"
-	"github.com/benbjohnson/wtf/http/assets"
-	"github.com/benbjohnson/wtf/http/html"
 )
 
 // Generic HTTP metrics.
@@ -72,6 +71,11 @@ type Server struct {
 	DialMembershipService wtf.DialMembershipService
 	EventService          wtf.EventService
 	UserService           wtf.UserService
+
+	// HealthCheckFn reports whether the server's dependencies (e.g. the
+	// database) are reachable. It backs the "/readyz" readiness probe. If nil,
+	// the server is always considered ready.
+	HealthCheckFn func(ctx context.Context) error
 }
 
 // middleware wraps an http.Handler to add behavior such as authentication,
@@ -128,6 +132,12 @@ func NewServer() *Server {
 
 	// Handle embedded asset serving. This serves files embedded from http/assets.
 	root.handle("/assets/", http.StripPrefix("/assets/", hashfs.FileServer(assets.FS)).ServeHTTP)
+
+	// Health probes for load balancers & orchestrators. Liveness ("/healthz")
+	// reports the process is up; readiness ("/readyz") reports dependencies are
+	// reachable. Both are unauthenticated & excluded from request metrics.
+	root.handle("GET /healthz", s.handleHealthz)
+	root.handle("GET /readyz", s.handleReadyz)
 
 	// Setup endpoint to display deployed version.
 	root.handle("GET /debug/version", s.handleVersion)
@@ -515,6 +525,35 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	var tmpl html.SettingsTemplate
 	tmpl.Render(r.Context(), w)
+}
+
+// handleHealthz handles the "GET /healthz" liveness probe. It reports that the
+// process is up & serving requests; it deliberately does not check downstream
+// dependencies, so a liveness failure means the process itself should be
+// restarted.
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	if _, err := w.Write([]byte("OK")); err != nil {
+		LogError(r, err)
+	}
+}
+
+// handleReadyz handles the "GET /readyz" readiness probe. It runs HealthCheckFn
+// (typically a database ping) to report whether the server can serve traffic,
+// returning 503 if the dependency check fails. The failure detail is logged
+// rather than returned so the probe does not leak internal error information.
+func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
+	if s.HealthCheckFn != nil {
+		if err := s.HealthCheckFn(r.Context()); err != nil {
+			LogError(r, err)
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	if _, err := w.Write([]byte("OK")); err != nil {
+		LogError(r, err)
+	}
 }
 
 // handleVersion displays the deployed version.

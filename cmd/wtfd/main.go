@@ -223,6 +223,9 @@ func (m *Main) Run(ctx context.Context) (err error) {
 	m.HTTPServer.EventService = eventService
 	m.HTTPServer.UserService = userService
 
+	// Back the readiness probe with a database ping.
+	m.HTTPServer.HealthCheckFn = m.DB.Ping
+
 	// Start the HTTP server.
 	if err := m.HTTPServer.Open(); err != nil {
 		return err

@@ -14,11 +14,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/benbjohnson/wtf"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-
-	"github.com/benbjohnson/wtf"
 )
 
 // Database metrics.
@@ -178,6 +177,15 @@ func (db *DB) migrateFile(name string) error {
 	}
 
 	return tx.Commit()
+}
+
+// Ping verifies the database connection is still alive, establishing one if
+// necessary. It backs the HTTP readiness probe.
+func (db *DB) Ping(ctx context.Context) error {
+	if err := db.db.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping database: %w", err)
+	}
+	return nil
 }
 
 // Close closes the database connection.
