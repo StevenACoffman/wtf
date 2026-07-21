@@ -70,19 +70,19 @@ func (r *Pagination) Render(ctx context.Context, w io.Writer) {
 	current := (r.Offset / r.Limit) + 1
 	pageN := ((r.N - 1) / r.Limit) + 1
 
-	prev := current - 1
-	if prev <= 0 {
-		prev = 1
-	}
-	next := current + 1
-	if next >= pageN {
-		next = pageN
-	}
-
-	// Print container & "previous" link.
+	// Print container & "previous" link. The link is disabled on the first page
+	// so it cannot navigate before the start of the range.
 	fmt.Fprint(w, `<nav aria-label="Page navigation">`)
 	fmt.Fprint(w, `<ul class="pagination pagination-sm justify-content-end mb-0">`)
-	fmt.Fprintf(w, `<li class="page-item"><a class="page-link" href="%s">Previous</a></li>`, r.pageURL(current-1))
+	if current <= 1 {
+		fmt.Fprint(w, `<li class="page-item disabled"><span class="page-link">Previous</span></li>`)
+	} else {
+		fmt.Fprintf(
+			w,
+			`<li class="page-item"><a class="page-link" href="%s">Previous</a></li>`,
+			r.pageURL(current-1),
+		)
+	}
 
 	// Print a button for each page number.
 	for page := 1; page <= pageN; page++ {
@@ -90,11 +90,26 @@ func (r *Pagination) Render(ctx context.Context, w io.Writer) {
 		if page == current {
 			className = " active"
 		}
-		fmt.Fprintf(w, `<li class="page-item %s"><a class="page-link" href="%s">%d</a></li>`, className, r.pageURL(page), page)
+		fmt.Fprintf(
+			w,
+			`<li class="page-item %s"><a class="page-link" href="%s">%d</a></li>`,
+			className,
+			r.pageURL(page),
+			page,
+		)
 	}
 
-	// Print "next" link & close container.
-	fmt.Fprintf(w, `<li class="page-item"><a class="page-link" href="%s">Next</a></li>`, r.pageURL(current+1))
+	// Print "next" link & close container. The link is disabled on the last page
+	// so it cannot navigate past the end of the range.
+	if current >= pageN {
+		fmt.Fprint(w, `<li class="page-item disabled"><span class="page-link">Next</span></li>`)
+	} else {
+		fmt.Fprintf(
+			w,
+			`<li class="page-item"><a class="page-link" href="%s">Next</a></li>`,
+			r.pageURL(current+1),
+		)
+	}
 	fmt.Fprint(w, `</ul>`)
 	fmt.Fprint(w, `</nav>`)
 }
