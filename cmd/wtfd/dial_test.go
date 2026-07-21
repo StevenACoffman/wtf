@@ -6,9 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chromedp/chromedp"
-
 	"github.com/benbjohnson/wtf"
+	"github.com/chromedp/chromedp"
 )
 
 // TestCreateDial creates a new dial by navigating from the dials page, clicking

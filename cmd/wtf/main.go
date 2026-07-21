@@ -11,9 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
-
 	"github.com/benbjohnson/wtf"
+	"github.com/pelletier/go-toml/v2"
 )
 
 // Default settings

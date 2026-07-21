@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/google/go-cmp/cmp"
-
 	"github.com/benbjohnson/wtf"
 	wtfhttp "github.com/benbjohnson/wtf/http"
+	"github.com/google/go-cmp/cmp"
 )
 
 // Ensure the HTTP server can return the dial listing in a variety of formats.

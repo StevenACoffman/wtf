@@ -9,10 +9,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/google/go-github/v89/github"
-
 	"github.com/benbjohnson/wtf"
 	"github.com/benbjohnson/wtf/http/html"
+	"github.com/google/go-github/v89/github"
 )
 
 // registerAuthRoutes is a helper function to register routes to a group.
