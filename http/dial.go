@@ -12,33 +12,32 @@ import (
 	"github.com/benbjohnson/wtf"
 	"github.com/benbjohnson/wtf/csv"
 	"github.com/benbjohnson/wtf/http/html"
-	"github.com/gorilla/mux"
 )
 
 // registerDialRoutes is a helper function for registering all dial routes.
-func (s *Server) registerDialRoutes(r *mux.Router) {
+func (s *Server) registerDialRoutes(r routeGroup) {
 	// Listing of all dials user is a member of.
-	r.HandleFunc("/dials", s.handleDialIndex).Methods("GET")
+	r.handle("GET /dials", s.handleDialIndex)
 
 	// API endpoint for creating dials.
-	r.HandleFunc("/dials", s.handleDialCreate).Methods("POST")
+	r.handle("POST /dials", s.handleDialCreate)
 
 	// HTML form for creating dials.
-	r.HandleFunc("/dials/new", s.handleDialNew).Methods("GET")
-	r.HandleFunc("/dials/new", s.handleDialCreate).Methods("POST")
+	r.handle("GET /dials/new", s.handleDialNew)
+	r.handle("POST /dials/new", s.handleDialCreate)
 
 	// View a single dial.
-	r.HandleFunc("/dials/{id}", s.handleDialView).Methods("GET")
+	r.handle("GET /dials/{id}", s.handleDialView)
 
 	// HTML form for updating an existing dial.
-	r.HandleFunc("/dials/{id}/edit", s.handleDialEdit).Methods("GET")
-	r.HandleFunc("/dials/{id}/edit", s.handleDialUpdate).Methods("PATCH")
+	r.handle("GET /dials/{id}/edit", s.handleDialEdit)
+	r.handle("PATCH /dials/{id}/edit", s.handleDialUpdate)
 
 	// Removing a dial.
-	r.HandleFunc("/dials/{id}", s.handleDialDelete).Methods("DELETE")
+	r.handle("DELETE /dials/{id}", s.handleDialDelete)
 
 	// Updating the value for the user's membership.
-	r.HandleFunc("/dials/{id}/membership", s.handleDialSetMembershipValue).Methods("PUT")
+	r.handle("PUT /dials/{id}/membership", s.handleDialSetMembershipValue)
 }
 
 // handleDialIndex handles the "GET /dials" route. This route can optionally
@@ -108,7 +107,7 @@ type findDialsResponse struct {
 // handleDialView handles the "GET /dials/:id" route. It updates
 func (s *Server) handleDialView(w http.ResponseWriter, r *http.Request) {
 	// Parse ID from path.
-	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		Error(w, r, wtf.Errorf(wtf.EINVALID, "Invalid ID format"))
 		return
@@ -122,7 +121,10 @@ func (s *Server) handleDialView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch associated memberships from the database.
-	dial.Memberships, _, err = s.DialMembershipService.FindDialMemberships(r.Context(), wtf.DialMembershipFilter{DialID: &dial.ID})
+	dial.Memberships, _, err = s.DialMembershipService.FindDialMemberships(
+		r.Context(),
+		wtf.DialMembershipFilter{DialID: &dial.ID},
+	)
 	if err != nil {
 		Error(w, r, err)
 		return
@@ -209,7 +211,7 @@ func (s *Server) handleDialCreate(w http.ResponseWriter, r *http.Request) {
 // the underlying dial and renders it in an HTML form.
 func (s *Server) handleDialEdit(w http.ResponseWriter, r *http.Request) {
 	// Parse dial ID from the path.
-	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		Error(w, r, wtf.Errorf(wtf.EINVALID, "Invalid ID format"))
 		return
@@ -232,7 +234,7 @@ func (s *Server) handleDialEdit(w http.ResponseWriter, r *http.Request) {
 // it redirects to the dial's view page.
 func (s *Server) handleDialUpdate(w http.ResponseWriter, r *http.Request) {
 	// Parse dial ID from the path.
-	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		Error(w, r, wtf.Errorf(wtf.EINVALID, "Invalid ID format"))
 		return
@@ -265,7 +267,7 @@ func (s *Server) handleDialUpdate(w http.ResponseWriter, r *http.Request) {
 // dial listing page.
 func (s *Server) handleDialDelete(w http.ResponseWriter, r *http.Request) {
 	// Parse dial ID from path.
-	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		Error(w, r, wtf.Errorf(wtf.EINVALID, "Invalid ID format"))
 		return
@@ -298,7 +300,7 @@ func (s *Server) handleDialSetMembershipValue(w http.ResponseWriter, r *http.Req
 	}
 
 	// Parse dial ID from path.
-	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		Error(w, r, wtf.Errorf(wtf.EINVALID, "Invalid ID format"))
 		return
@@ -360,7 +362,10 @@ func (s *DialService) FindDialByID(ctx context.Context, id int) (*wtf.Dial, erro
 // that the user owns or is a member of. Also returns a count of total matching
 // dials which may different from the number of returned dials if the
 // "Limit" field is set.
-func (s *DialService) FindDials(ctx context.Context, filter wtf.DialFilter) ([]*wtf.Dial, int, error) {
+func (s *DialService) FindDials(
+	ctx context.Context,
+	filter wtf.DialFilter,
+) ([]*wtf.Dial, int, error) {
 	// Marshal filter into JSON format.
 	body, err := json.Marshal(filter)
 	if err != nil {
@@ -422,7 +427,11 @@ func (s *DialService) CreateDial(ctx context.Context, dial *wtf.Dial) error {
 }
 
 // UpdateDial is not implemented by the HTTP service.
-func (s *DialService) UpdateDial(ctx context.Context, id int, upd wtf.DialUpdate) (*wtf.Dial, error) {
+func (s *DialService) UpdateDial(
+	ctx context.Context,
+	id int,
+	upd wtf.DialUpdate,
+) (*wtf.Dial, error) {
 	return nil, wtf.Errorf(wtf.ENOTIMPLEMENTED, "Not implemented.")
 }
 
@@ -461,7 +470,12 @@ func (s *DialService) SetDialMembershipValue(ctx context.Context, dialID, value 
 	}
 
 	// Create a request with API key.
-	req, err := s.Client.newRequest(ctx, "PUT", fmt.Sprintf("/dials/%d/membership", dialID), bytes.NewReader(body))
+	req, err := s.Client.newRequest(
+		ctx,
+		"PUT",
+		fmt.Sprintf("/dials/%d/membership", dialID),
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		return err
 	}
@@ -479,6 +493,10 @@ func (s *DialService) SetDialMembershipValue(ctx context.Context, dialID, value 
 }
 
 // AverageDialValueReport is not implemented by the HTTP service.
-func (s *DialService) AverageDialValueReport(ctx context.Context, start, end time.Time, interval time.Duration) (*wtf.DialValueReport, error) {
+func (s *DialService) AverageDialValueReport(
+	ctx context.Context,
+	start, end time.Time,
+	interval time.Duration,
+) (*wtf.DialValueReport, error) {
 	return nil, wtf.Errorf(wtf.ENOTIMPLEMENTED, "Not implemented.")
 }

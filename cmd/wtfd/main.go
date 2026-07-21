@@ -2,23 +2,25 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	"github.com/pelletier/go-toml/v2"
+	"github.com/rollbar/rollbar-go"
 
 	"github.com/benbjohnson/wtf"
 	"github.com/benbjohnson/wtf/http"
 	"github.com/benbjohnson/wtf/http/html"
 	"github.com/benbjohnson/wtf/inmem"
 	"github.com/benbjohnson/wtf/sqlite"
-	"github.com/pelletier/go-toml"
-	"github.com/rollbar/rollbar-go"
 )
 
 // Build version, injected during build.
@@ -45,7 +47,7 @@ func main() {
 	m := NewMain()
 
 	// Parse command line flags & load configuration.
-	if err := m.ParseFlags(ctx, os.Args[1:]); err == flag.ErrHelp {
+	if err := m.ParseFlags(ctx, os.Args[1:]); errors.Is(err, flag.ErrHelp) {
 		os.Exit(1)
 	} else if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -219,7 +221,11 @@ func (m *Main) Run(ctx context.Context) (err error) {
 	// Enable internal debug endpoints.
 	go func() { http.ListenAndServeDebug() }()
 
-	log.Printf("running: url=%q debug=http://localhost:6060 dsn=%q", m.HTTPServer.URL(), m.Config.DB.DSN)
+	log.Printf(
+		"running: url=%q debug=http://localhost:6060 dsn=%q",
+		m.HTTPServer.URL(),
+		m.Config.DB.DSN,
+	)
 
 	return nil
 }
@@ -269,7 +275,7 @@ func DefaultConfig() Config {
 // ReadConfigFile unmarshals config from
 func ReadConfigFile(filename string) (Config, error) {
 	config := DefaultConfig()
-	if buf, err := ioutil.ReadFile(filename); err != nil {
+	if buf, err := os.ReadFile(filename); err != nil {
 		return config, err
 	} else if err := toml.Unmarshal(buf, &config); err != nil {
 		return config, err
@@ -290,7 +296,7 @@ func expand(path string) (string, error) {
 	if err != nil {
 		return path, err
 	} else if u.HomeDir == "" {
-		return path, fmt.Errorf("home directory unset")
+		return path, errors.New("home directory unset")
 	}
 
 	if path == "~" {
@@ -308,24 +314,24 @@ func expandDSN(dsn string) (string, error) {
 }
 
 // rollbarReportError reports internal errors to rollbar.
-func rollbarReportError(ctx context.Context, err error, args ...interface{}) {
+func rollbarReportError(ctx context.Context, err error, args ...any) {
 	if wtf.ErrorCode(err) != wtf.EINTERNAL {
 		return
 	}
 
 	// Set user information for error, if available.
 	if u := wtf.UserFromContext(ctx); u != nil {
-		rollbar.SetPerson(fmt.Sprint(u.ID), u.Name, u.Email)
+		rollbar.SetPerson(strconv.Itoa(u.ID), u.Name, u.Email)
 	} else {
 		rollbar.ClearPerson()
 	}
 
 	log.Printf("error: %v", err)
-	rollbar.Error(append([]interface{}{err}, args)...)
+	rollbar.Error(append([]any{err}, args)...)
 }
 
 // rollbarReportPanic reports panics to rollbar.
-func rollbarReportPanic(err interface{}) {
+func rollbarReportPanic(err any) {
 	log.Printf("panic: %v", err)
 	rollbar.LogPanic(err, true)
 }

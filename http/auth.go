@@ -3,24 +3,24 @@ package http
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 
+	"github.com/google/go-github/v89/github"
+
 	"github.com/benbjohnson/wtf"
 	"github.com/benbjohnson/wtf/http/html"
-	"github.com/google/go-github/v32/github"
-	"github.com/gorilla/mux"
-	"golang.org/x/oauth2"
 )
 
-// registerAuthRoutes is a helper function to register routes to a router.
-func (s *Server) registerAuthRoutes(r *mux.Router) {
-	r.HandleFunc("/login", s.handleLogin).Methods("GET")
-	r.HandleFunc("/logout", s.handleLogout).Methods("DELETE")
-	r.HandleFunc("/oauth/github", s.handleOAuthGitHub).Methods("GET")
-	r.HandleFunc("/oauth/github/callback", s.handleOAuthGitHubCallback).Methods("GET")
+// registerAuthRoutes is a helper function to register routes to a group.
+func (s *Server) registerAuthRoutes(r routeGroup) {
+	r.handle("GET /login", s.handleLogin)
+	r.handle("DELETE /logout", s.handleLogout)
+	r.handle("GET /oauth/github", s.handleOAuthGitHub)
+	r.handle("GET /oauth/github/callback", s.handleOAuthGitHubCallback)
 }
 
 // handleLogin handles the "GET /login" route. It simply renders an HTML login form.
@@ -83,36 +83,38 @@ func (s *Server) handleOAuthGitHubCallback(w http.ResponseWriter, r *http.Reques
 	// Read session from request.
 	session, err := s.session(r)
 	if err != nil {
-		Error(w, r, fmt.Errorf("cannot read session: %s", err))
+		Error(w, r, fmt.Errorf("cannot read session: %w", err))
 		return
 	}
 
 	// Validate that state matches session state.
 	if state != session.State {
-		Error(w, r, fmt.Errorf("oauth state mismatch"))
+		Error(w, r, errors.New("oauth state mismatch"))
 		return
 	}
 
 	// Exchange code for OAuth tokens.
 	tok, err := s.OAuth2Config().Exchange(r.Context(), code)
 	if err != nil {
-		Error(w, r, fmt.Errorf("oauth exchange error: %s", err))
+		Error(w, r, fmt.Errorf("oauth exchange error: %w", err))
 		return
 	}
 
-	// Create a new GitHub API client.
-	client := github.NewClient(oauth2.NewClient(r.Context(), oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: tok.AccessToken},
-	)))
+	// Create a new GitHub API client authenticated with the OAuth token.
+	client, err := github.NewClient(github.WithAuthToken(tok.AccessToken))
+	if err != nil {
+		Error(w, r, fmt.Errorf("cannot create github client: %w", err))
+		return
+	}
 
 	// Fetch user information for the currently authenticated user.
 	// Require that we at least receive a user ID from GitHub.
 	u, _, err := client.Users.Get(r.Context(), "")
 	if err != nil {
-		Error(w, r, fmt.Errorf("cannot fetch github user: %s", err))
+		Error(w, r, fmt.Errorf("cannot fetch github user: %w", err))
 		return
 	} else if u.ID == nil {
-		Error(w, r, fmt.Errorf("user ID not returned by GitHub, cannot authenticate user"))
+		Error(w, r, errors.New("user ID not returned by GitHub, cannot authenticate user"))
 		return
 	}
 
@@ -149,7 +151,7 @@ func (s *Server) handleOAuthGitHubCallback(w http.ResponseWriter, r *http.Reques
 	// the user by email if they already exist. Otherwise, a new user will be
 	// created and the user's ID will be set to auth.UserID.
 	if err := s.AuthService.CreateAuth(r.Context(), auth); err != nil {
-		Error(w, r, fmt.Errorf("cannot create auth: %s", err))
+		Error(w, r, fmt.Errorf("cannot create auth: %w", err))
 		return
 	}
 
@@ -161,7 +163,7 @@ func (s *Server) handleOAuthGitHubCallback(w http.ResponseWriter, r *http.Reques
 	session.RedirectURL = ""
 	session.State = ""
 	if err := s.setSession(w, session); err != nil {
-		Error(w, r, fmt.Errorf("cannot set session cookie: %s", err))
+		Error(w, r, fmt.Errorf("cannot set session cookie: %w", err))
 		return
 	}
 

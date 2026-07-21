@@ -3,20 +3,18 @@ package http
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/benbjohnson/hashfs"
-	"github.com/benbjohnson/wtf"
-	"github.com/benbjohnson/wtf/http/assets"
-	"github.com/benbjohnson/wtf/http/html"
-	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -24,6 +22,10 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
+
+	"github.com/benbjohnson/wtf"
+	"github.com/benbjohnson/wtf/http/assets"
+	"github.com/benbjohnson/wtf/http/html"
 )
 
 // Generic HTTP metrics.
@@ -48,7 +50,7 @@ const ShutdownTimeout = 1 * time.Second
 type Server struct {
 	ln     net.Listener
 	server *http.Server
-	router *mux.Router
+	router *http.ServeMux
 	sc     *securecookie.SecureCookie
 
 	// Bind address & domain for the server's listener.
@@ -72,58 +74,84 @@ type Server struct {
 	UserService           wtf.UserService
 }
 
+// middleware wraps an http.Handler to add behavior such as authentication,
+// flash loading, or metrics tracking. It is the standard library replacement
+// for the per-router middleware previously provided by gorilla/mux.
+type middleware func(http.Handler) http.Handler
+
+// routeGroup registers routes on a shared http.ServeMux with a common set of
+// middleware applied to each handler. Groups are cheap values that can be
+// derived from one another with with() to layer on additional middleware,
+// serving the same role as gorilla/mux subrouters.
+type routeGroup struct {
+	mux *http.ServeMux
+	mw  []middleware
+}
+
+// with returns a new group that applies the group's middleware plus mw. The
+// additional middleware runs inside (i.e. after) the existing middleware.
+func (g routeGroup) with(mw ...middleware) routeGroup {
+	combined := make([]middleware, 0, len(g.mw)+len(mw))
+	combined = append(combined, g.mw...)
+	combined = append(combined, mw...)
+	return routeGroup{mux: g.mux, mw: combined}
+}
+
+// handle registers h for the given method+path pattern (e.g. "GET /dials/{id}")
+// with the group's middleware chain wrapped around it. Middleware is applied so
+// that the first entry in the chain is the outermost handler.
+func (g routeGroup) handle(pattern string, h http.HandlerFunc) {
+	handler := http.Handler(h)
+	for _, v := range slices.Backward(g.mw) {
+		handler = v(handler)
+	}
+	g.mux.Handle(pattern, handler)
+}
+
 // NewServer returns a new instance of Server.
 func NewServer() *Server {
-	// Create a new server that wraps the net/http server & add a gorilla router.
+	// Create a new server that wraps the net/http server & standard library router.
 	s := &Server{
 		server: &http.Server{},
-		router: mux.NewRouter(),
+		router: http.NewServeMux(),
 	}
-
-	// Report panics to external service.
-	s.router.Use(reportPanic)
 
 	// Our router is wrapped by another function handler to perform some
 	// middleware-like tasks that cannot be performed by actual middleware.
-	// This includes changing route paths for JSON endpoints & overridding methods.
-	s.server.Handler = http.HandlerFunc(s.serveHTTP)
+	// This includes changing route paths for JSON endpoints & overriding methods.
+	// The reportPanic middleware wraps everything so panics in any handler—
+	// including static assets & the not-found handler—are reported.
+	s.server.Handler = reportPanic(http.HandlerFunc(s.serveHTTP))
 
-	// Setup error handling routes.
-	s.router.NotFoundHandler = http.HandlerFunc(s.handleNotFound)
+	// The root group shares the router but applies no middleware of its own.
+	root := routeGroup{mux: s.router}
 
 	// Handle embedded asset serving. This serves files embedded from http/assets.
-	s.router.PathPrefix("/assets/").
-		Handler(http.StripPrefix("/assets/", hashfs.FileServer(assets.FS)))
+	root.handle("/assets/", http.StripPrefix("/assets/", hashfs.FileServer(assets.FS)).ServeHTTP)
 
 	// Setup endpoint to display deployed version.
-	s.router.HandleFunc("/debug/version", s.handleVersion).Methods("GET")
-	s.router.HandleFunc("/debug/commit", s.handleCommit).Methods("GET")
+	root.handle("GET /debug/version", s.handleVersion)
+	root.handle("GET /debug/commit", s.handleCommit)
 
-	// Setup a base router that excludes asset handling.
-	router := s.router.PathPrefix("/").Subrouter()
-	router.Use(s.authenticate)
-	router.Use(loadFlash)
-	router.Use(trackMetrics)
+	// Setup error handling route for any otherwise-unmatched path.
+	root.handle("/", s.handleNotFound)
+
+	// The base group loads authentication & session data and tracks metrics for
+	// every request that is not for a static asset.
+	base := root.with(s.authenticate, loadFlash, trackMetrics)
 
 	// Handle authentication check within handler function for home page.
-	router.HandleFunc("/", s.handleIndex).Methods("GET")
+	base.handle("GET /{$}", s.handleIndex)
 
 	// Register unauthenticated routes.
-	{
-		r := s.router.PathPrefix("/").Subrouter()
-		r.Use(s.requireNoAuth)
-		s.registerAuthRoutes(r)
-	}
+	s.registerAuthRoutes(root.with(s.requireNoAuth))
 
 	// Register authenticated routes.
-	{
-		r := router.PathPrefix("/").Subrouter()
-		r.Use(s.requireAuth)
-		r.HandleFunc("/settings", s.handleSettings).Methods("GET")
-		s.registerDialRoutes(r)
-		s.registerDialMembershipRoutes(r)
-		s.registerEventRoutes(r)
-	}
+	auth := base.with(s.requireAuth)
+	auth.handle("GET /settings", s.handleSettings)
+	s.registerDialRoutes(auth)
+	s.registerDialMembershipRoutes(auth)
+	s.registerEventRoutes(auth)
 
 	return s
 }
@@ -176,9 +204,9 @@ func (s *Server) Open() (err error) {
 
 	// Validate GitHub OAuth settings.
 	if s.GitHubClientID == "" {
-		return fmt.Errorf("github client id required")
+		return errors.New("github client id required")
 	} else if s.GitHubClientSecret == "" {
-		return fmt.Errorf("github client secret required")
+		return errors.New("github client secret required")
 	}
 
 	// Open a listener on our bind address.
@@ -203,19 +231,19 @@ func (s *Server) Open() (err error) {
 func (s *Server) openSecureCookie() error {
 	// Ensure hash & block key are set.
 	if s.HashKey == "" {
-		return fmt.Errorf("hash key required")
+		return errors.New("hash key required")
 	} else if s.BlockKey == "" {
-		return fmt.Errorf("block key required")
+		return errors.New("block key required")
 	}
 
 	// Decode from hex to byte slices.
 	hashKey, err := hex.DecodeString(s.HashKey)
 	if err != nil {
-		return fmt.Errorf("invalid hash key")
+		return errors.New("invalid hash key")
 	}
 	blockKey, err := hex.DecodeString(s.BlockKey)
 	if err != nil {
-		return fmt.Errorf("invalid block key")
+		return errors.New("invalid block key")
 	}
 
 	// Initialize cookie management & encode our cookie data as JSON.
@@ -265,7 +293,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = strings.TrimSuffix(r.URL.Path, ext)
 	}
 
-	// Delegate remaining HTTP handling to the gorilla router.
+	// Delegate remaining HTTP handling to the standard library router.
 	s.router.ServeHTTP(w, r)
 }
 
@@ -385,13 +413,15 @@ func trackMetrics(next http.Handler) http.Handler {
 }
 
 // requestPathTemplate returns the route path template for r.
+//
+// r.Pattern is the ServeMux pattern that matched the request (e.g.
+// "GET /dials/{id}"). We strip the leading HTTP method to recover just the
+// path template used as the metrics label.
 func requestPathTemplate(r *http.Request) string {
-	route := mux.CurrentRoute(r)
-	if route == nil {
-		return ""
+	if _, path, ok := strings.Cut(r.Pattern, " "); ok {
+		return path
 	}
-	tmpl, _ := route.GetPathTemplate()
-	return tmpl
+	return r.Pattern
 }
 
 // reportPanic is middleware for catching panics and reporting them.
@@ -448,10 +478,13 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch recently updated members.
-	if tmpl.Memberships, _, err = s.DialMembershipService.FindDialMemberships(r.Context(), wtf.DialMembershipFilter{
-		Limit:  20,
-		SortBy: "updated_at_desc",
-	}); err != nil {
+	if tmpl.Memberships, _, err = s.DialMembershipService.FindDialMemberships(
+		r.Context(),
+		wtf.DialMembershipFilter{
+			Limit:  20,
+			SortBy: "updated_at_desc",
+		},
+	); err != nil {
 		Error(w, r, err)
 		return
 	}
@@ -460,7 +493,12 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	interval := time.Minute
 	end := time.Now().Truncate(interval).Add(interval)
 	start := end.Add(-1 * time.Hour)
-	if tmpl.AverageDialValueReport, err = s.DialService.AverageDialValueReport(r.Context(), start, end, interval); err != nil {
+	if tmpl.AverageDialValueReport, err = s.DialService.AverageDialValueReport(
+		r.Context(),
+		start,
+		end,
+		interval,
+	); err != nil {
 		Error(w, r, err)
 		return
 	}
@@ -539,9 +577,12 @@ func (s *Server) UnmarshalSession(data string, session *Session) error {
 // ListenAndServeTLSRedirect runs an HTTP server on port 80 to redirect users
 // to the TLS-enabled port 443 server.
 func ListenAndServeTLSRedirect(domain string) error {
-	return http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "https://"+domain, http.StatusFound)
-	}))
+	return http.ListenAndServe(
+		":80",
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "https://"+domain, http.StatusFound)
+		}),
+	)
 }
 
 // ListenAndServeDebug runs an HTTP server with /debug endpoints (e.g. pprof, vars).

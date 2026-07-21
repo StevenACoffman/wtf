@@ -8,20 +8,19 @@ import (
 
 	"github.com/benbjohnson/wtf"
 	"github.com/benbjohnson/wtf/http/html"
-	"github.com/gorilla/mux"
 )
 
 // registerDialMembershipRoutes is a helper function for registering membership routes.
-func (s *Server) registerDialMembershipRoutes(r *mux.Router) {
+func (s *Server) registerDialMembershipRoutes(r routeGroup) {
 	// Create membership via invite code.
-	r.HandleFunc("/invite/{code}", s.handleDialMembershipNew).Methods("GET")
-	r.HandleFunc("/invite/{code}", s.handleDialMembershipCreate).Methods("POST")
+	r.handle("GET /invite/{code}", s.handleDialMembershipNew)
+	r.handle("POST /invite/{code}", s.handleDialMembershipCreate)
 
 	// Update membership WTF level.
-	r.HandleFunc("/dial-memberships/{id}", s.handleDialMembershipUpdate).Methods("PATCH")
+	r.handle("PATCH /dial-memberships/{id}", s.handleDialMembershipUpdate)
 
 	// Remove membership.
-	r.HandleFunc("/dial-memberships/{id}", s.handleDialMembershipDelete).Methods("DELETE")
+	r.handle("DELETE /dial-memberships/{id}", s.handleDialMembershipDelete)
 }
 
 // handleDialMembershipNew handles the "GET /invite/:code" route. This route
@@ -31,7 +30,7 @@ func (s *Server) handleDialMembershipNew(w http.ResponseWriter, r *http.Request)
 	userID := wtf.UserIDFromContext(r.Context())
 
 	// Read invite code from the URL path.
-	code := mux.Vars(r)["code"]
+	code := r.PathValue("code")
 
 	// Find dial by invite code.
 	// The invite code is unique so at most one dial will be returned.
@@ -46,13 +45,18 @@ func (s *Server) handleDialMembershipNew(w http.ResponseWriter, r *http.Request)
 
 	// Check if user is already a member. If so, redirect them to the dial's
 	// page automatically and add a flash message letting them know.
-	if memberships, _, err := s.DialMembershipService.FindDialMemberships(r.Context(), wtf.DialMembershipFilter{
-		DialID: &dials[0].ID,
-		UserID: &userID,
-	}); err != nil {
+	if memberships, _, err := s.DialMembershipService.FindDialMemberships(
+		r.Context(),
+		wtf.DialMembershipFilter{
+			DialID: &dials[0].ID,
+			UserID: &userID,
+		},
+	); err != nil {
 		Error(w, r, err)
 		return
-	} else if len(memberships) != 0 {
+	} else if len(
+		memberships,
+	) != 0 {
 		SetFlash(w, "You are already a member of this dial.")
 		http.Redirect(w, r, fmt.Sprintf("/dials/%d", memberships[0].DialID), http.StatusFound)
 		return
@@ -70,7 +74,7 @@ func (s *Server) handleDialMembershipCreate(w http.ResponseWriter, r *http.Reque
 	userID := wtf.UserIDFromContext(r.Context())
 
 	// Read invite code from URL path.
-	code := mux.Vars(r)["code"]
+	code := r.PathValue("code")
 
 	// Look up dial by invite code.
 	dials, _, err := s.DialService.FindDials(r.Context(), wtf.DialFilter{InviteCode: &code})
@@ -103,7 +107,7 @@ func (s *Server) handleDialMembershipCreate(w http.ResponseWriter, r *http.Reque
 // This route is only called via JSON API on the dial view page.
 func (s *Server) handleDialMembershipUpdate(w http.ResponseWriter, r *http.Request) {
 	// Parse membership ID from URL path.
-	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		Error(w, r, wtf.Errorf(wtf.EINVALID, "Invalid ID format"))
 		return
@@ -138,7 +142,7 @@ func (s *Server) handleDialMembershipUpdate(w http.ResponseWriter, r *http.Reque
 // This route deletes the given membership and redirects the user.
 func (s *Server) handleDialMembershipDelete(w http.ResponseWriter, r *http.Request) {
 	// Parse membership ID from the URL.
-	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		Error(w, r, wtf.Errorf(wtf.EINVALID, "Invalid ID format"))
 		return

@@ -6,8 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/benbjohnson/wtf"
 	"github.com/chromedp/chromedp"
+
+	"github.com/benbjohnson/wtf"
 )
 
 // TestCreateDial creates a new dial by navigating from the dials page, clicking
@@ -44,9 +45,14 @@ func TestCreateDial(t *testing.T) {
 	}
 
 	// Verify that we see the dial page and the dial exists.
+	//
+	// Wait for the dial name heading, which only exists on the dial view page,
+	// before reading the location. This ensures the post-submit redirect to
+	// "/dials/{id}" has completed rather than racing the previous form page,
+	// whose footer would otherwise satisfy an earlier WaitVisible.
 	var location, title, name string
 	if err := chromedp.Run(ctx0,
-		chromedp.WaitVisible(`body > footer`),
+		chromedp.WaitVisible(`h2 .dial-name`),
 		chromedp.Location(&location),
 		chromedp.Title(&title),
 		chromedp.Text(`h2 .dial-name`, &name),

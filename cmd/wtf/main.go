@@ -5,15 +5,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"os/user"
 	"path/filepath"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
+
 	"github.com/benbjohnson/wtf"
-	"github.com/pelletier/go-toml"
 )
 
 // Default settings
@@ -39,10 +39,9 @@ func main() {
 	//
 	// If we have an application error (wtf.Error) then we can just display the
 	// message. If we have any other error, print the raw error message.
-	var e *wtf.Error
-	if err := Run(ctx, os.Args[1:]); err == flag.ErrHelp {
+	if err := Run(ctx, os.Args[1:]); errors.Is(err, flag.ErrHelp) {
 		os.Exit(1)
-	} else if errors.As(err, &e) {
+	} else if e, ok := errors.AsType[*wtf.Error](err); ok {
 		fmt.Fprintln(os.Stderr, e.Message)
 		os.Exit(1)
 	} else if err != nil {
@@ -113,13 +112,13 @@ func ReadConfigFile(filename string) (Config, error) {
 		if err != nil {
 			return config, err
 		} else if u.HomeDir == "" {
-			return config, fmt.Errorf("home directory unset")
+			return config, errors.New("home directory unset")
 		}
 		filename = filepath.Join(u.HomeDir, strings.TrimPrefix(filename, prefix))
 	}
 
 	// Read & deserialize configuration.
-	if buf, err := ioutil.ReadFile(filename); os.IsNotExist(err) {
+	if buf, err := os.ReadFile(filename); os.IsNotExist(err) {
 		return config, fmt.Errorf("config file not found: %s", filename)
 	} else if err != nil {
 		return config, err

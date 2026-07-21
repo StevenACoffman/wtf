@@ -2,17 +2,16 @@ package main_test
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/benbjohnson/wtf"
-	"github.com/benbjohnson/wtf/cmd/wtfd"
-	"github.com/benbjohnson/wtf/http"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
-	// "github.com/chromedp/cdproto/cdp"
+
+	"github.com/benbjohnson/wtf"
+	main "github.com/benbjohnson/wtf/cmd/wtfd"
+	"github.com/benbjohnson/wtf/http"
 )
 
 // MustRunMain is a test helper function that executes Main in a temporary path.
@@ -66,10 +65,10 @@ func Login(ctx context.Context, m *main.Main) chromedp.Action {
 		}
 
 		// Add cookie to browser.
-		if ok, err := network.SetCookie(http.SessionCookieName, value).WithDomain("localhost").Do(ctx); err != nil {
+		if err := network.SetCookie(http.SessionCookieName, value).
+			WithDomain("localhost").
+			Do(ctx); err != nil {
 			return err
-		} else if !ok {
-			return fmt.Errorf("could not set session cookie")
 		}
 		return nil
 	})
