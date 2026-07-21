@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"context"
-	"log"
 	"testing"
 
 	"github.com/chromedp/chromedp"
@@ -18,7 +17,7 @@ func TestRedirectToLogin(t *testing.T) {
 	defer MustCloseMain(t, m)
 
 	// Create Chrome testing context.
-	ctx, cancel := chromedp.NewContext(context.Background(), chromedp.WithLogf(log.Printf))
+	ctx, cancel := chromedp.NewContext(context.Background(), chromedp.WithLogf(t.Logf))
 	defer cancel()
 
 	// Navigate to the home page, expect to be redirected to login.

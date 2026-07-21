@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"os/user"
@@ -167,6 +167,15 @@ func (m *Main) ParseFlags(ctx context.Context, args []string) error {
 // Run executes the program. The configuration should already be set up before
 // calling this function.
 func (m *Main) Run(ctx context.Context) (err error) {
+	// Build the application logger and attach it to the subsystems before they
+	// start emitting. Logs are structured JSON on stdout; the level is taken
+	// from the LOG_LEVEL environment variable (default "info").
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: parseLogLevel(os.Getenv("LOG_LEVEL")),
+	}))
+	m.DB.Logger = logger
+	m.HTTPServer.Logger = logger
+
 	// Initialize error tracking.
 	if m.Config.Rollbar.Token != "" {
 		rollbar.SetToken(m.Config.Rollbar.Token)
@@ -175,7 +184,7 @@ func (m *Main) Run(ctx context.Context) (err error) {
 		rollbar.SetServerRoot("github.com/benbjohnson/wtf")
 		wtf.ReportError = rollbarReportError
 		wtf.ReportPanic = rollbarReportPanic
-		log.Printf("rollbar error tracking enabled")
+		logger.InfoContext(ctx, "rollbar error tracking enabled")
 	}
 
 	// Initialize event service for real-time events.
@@ -234,17 +243,19 @@ func (m *Main) Run(ctx context.Context) (err error) {
 	// If TLS enabled, redirect non-TLS connections to TLS.
 	if m.HTTPServer.UseTLS() {
 		go func() {
-			log.Fatal(http.ListenAndServeTLSRedirect(m.Config.HTTP.Domain))
+			if err := http.ListenAndServeTLSRedirect(m.Config.HTTP.Domain); err != nil {
+				logger.ErrorContext(ctx, "tls redirect server stopped", "error", err)
+			}
 		}()
 	}
 
 	// Enable internal debug endpoints.
 	go func() { http.ListenAndServeDebug() }()
 
-	log.Printf(
-		"running: url=%q debug=http://localhost:6060 dsn=%q",
-		m.HTTPServer.URL(),
-		m.Config.DB.DSN,
+	logger.InfoContext(ctx, "server running",
+		"url", m.HTTPServer.URL(),
+		"debug_url", "http://localhost:6060",
+		"dsn", m.Config.DB.DSN,
 	)
 
 	return nil
@@ -333,6 +344,21 @@ func expandDSN(dsn string) (string, error) {
 	return expand(dsn)
 }
 
+// parseLogLevel maps a LOG_LEVEL string ("debug", "info", "warn", "error") to a
+// slog.Level, defaulting to Info for empty or unrecognized values.
+func parseLogLevel(s string) slog.Level {
+	switch strings.ToLower(s) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
 // rollbarReportError reports internal errors to rollbar.
 func rollbarReportError(ctx context.Context, err error, args ...any) {
 	if wtf.ErrorCode(err) != wtf.EINTERNAL {
@@ -346,12 +372,11 @@ func rollbarReportError(ctx context.Context, err error, args ...any) {
 		rollbar.ClearPerson()
 	}
 
-	log.Printf("error: %v", err)
 	rollbar.Error(append([]any{err}, args)...)
 }
 
-// rollbarReportPanic reports panics to rollbar.
+// rollbarReportPanic reports panics to rollbar. Local logging of panics is
+// handled by the HTTP layer's request-scoped logger.
 func rollbarReportPanic(err any) {
-	log.Printf("panic: %v", err)
 	rollbar.LogPanic(err, true)
 }

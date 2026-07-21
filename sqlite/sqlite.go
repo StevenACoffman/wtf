@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -56,6 +56,10 @@ type DB struct {
 	// Returns the current time. Defaults to time.Now().
 	// Can be mocked for tests.
 	Now func() time.Time
+
+	// Logger is used for background logging, such as the stats monitor.
+	// NewDB sets a default; callers may override it.
+	Logger *slog.Logger
 }
 
 // NewDB returns a new instance of DB associated with the given datasource name.
@@ -65,6 +69,7 @@ func NewDB(dsn string) *DB {
 		Now: time.Now,
 
 		EventService: wtf.NopEventService(),
+		Logger:       slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	}
 	db.ctx, db.cancel = context.WithCancel(context.Background())
 	return db
@@ -230,7 +235,7 @@ func (db *DB) monitor() {
 		}
 
 		if err := db.updateStats(db.ctx); err != nil {
-			log.Printf("stats error: %s", err)
+			db.Logger.ErrorContext(db.ctx, "stats error", "error", err)
 		}
 	}
 }

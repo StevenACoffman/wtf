@@ -5,10 +5,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"path"
 	"slices"
 	"strings"
@@ -77,6 +78,11 @@ type Server struct {
 	// database) are reachable. It backs the "/readyz" readiness probe. If nil,
 	// the server is always considered ready.
 	HealthCheckFn func(ctx context.Context) error
+
+	// Logger is the base logger for the server. Every request derives a
+	// child logger from it that is tagged with a correlation ID (see
+	// withLogger). NewServer sets a default; callers may override it.
+	Logger *slog.Logger
 }
 
 // middleware wraps an http.Handler to add behavior such as authentication,
@@ -119,14 +125,17 @@ func NewServer() *Server {
 	s := &Server{
 		server: &http.Server{},
 		router: http.NewServeMux(),
+		Logger: slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	}
 
 	// Our router is wrapped by another function handler to perform some
 	// middleware-like tasks that cannot be performed by actual middleware.
 	// This includes changing route paths for JSON endpoints & overriding methods.
-	// The reportPanic middleware wraps everything so panics in any handler—
-	// including static assets & the not-found handler—are reported.
-	s.server.Handler = reportPanic(http.HandlerFunc(s.serveHTTP))
+	// withLogger attaches a request-scoped logger (outermost) so panics and
+	// handler errors are logged with a correlation ID; reportPanic wraps
+	// everything else so panics in any handler—including static assets & the
+	// not-found handler—are reported.
+	s.server.Handler = s.withLogger(reportPanic(http.HandlerFunc(s.serveHTTP)))
 
 	// The root group shares the router but applies no middleware of its own.
 	root := routeGroup{mux: s.router}
@@ -344,7 +353,8 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		// Read user, if available. Ignore if fetching assets.
 		if session.UserID != 0 {
 			if user, err := s.UserService.FindUserByID(r.Context(), session.UserID); err != nil {
-				log.Printf("cannot find session user: id=%d err=%s", session.UserID, err)
+				loggerFromContext(r.Context()).WarnContext(r.Context(),
+					"cannot find session user", "user_id", session.UserID, "error", err)
 			} else {
 				r = r.WithContext(wtf.NewContextWithUser(r.Context(), user))
 			}
@@ -388,7 +398,9 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 		session, _ := s.session(r)
 		session.RedirectURL = redirectURL.String()
 		if err := s.setSession(w, session); err != nil {
-			log.Printf("http: cannot set session: %s", err)
+			loggerFromContext(
+				r.Context(),
+			).ErrorContext(r.Context(), "cannot set session", "error", err)
 		}
 		http.Redirect(w, r, "/login", http.StatusFound)
 	})
@@ -445,6 +457,9 @@ func reportPanic(next http.Handler) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
+				loggerFromContext(
+					r.Context(),
+				).ErrorContext(r.Context(), "panic recovered", "error", err)
 				wtf.ReportPanic(err)
 			}
 		}()

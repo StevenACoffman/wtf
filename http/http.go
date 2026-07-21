@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
@@ -138,9 +137,10 @@ func parseResponseError(resp *http.Response) error {
 	return wtf.Errorf(FromErrorStatusCode(resp.StatusCode), "%s", errorResponse.Error)
 }
 
-// LogError logs an error with the HTTP route information.
+// LogError logs an error using the request-scoped logger, which already carries
+// the correlation ID, method, and path for the request.
 func LogError(r *http.Request, err error) {
-	log.Printf("[http] error: %s %s: %s", r.Method, r.URL.Path, err)
+	loggerFromContext(r.Context()).ErrorContext(r.Context(), "request error", "error", err)
 }
 
 // lookup of application error codes to HTTP status codes.

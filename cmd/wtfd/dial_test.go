@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"log"
 	"net/url"
 	"strings"
 	"testing"
@@ -21,7 +20,7 @@ func TestCreateDial(t *testing.T) {
 
 	// Generate a user directly in the database and attach the user to the context.
 	_, ctx0 := MustCreateUser(t, m, &wtf.User{Name: "USER0"})
-	ctx0, cancel := chromedp.NewContext(ctx0, chromedp.WithLogf(log.Printf))
+	ctx0, cancel := chromedp.NewContext(ctx0, chromedp.WithLogf(t.Logf))
 	defer cancel()
 
 	// Navigate to dial list page & click "Create new dial" button
