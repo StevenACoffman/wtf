@@ -2,7 +2,7 @@ package sqlite_test
 
 import (
 	"flag"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -25,7 +25,7 @@ func MustOpenDB(tb testing.TB) *sqlite.DB {
 	// If the -dump flag is set, generate a temp file for the database.
 	dsn := ":memory:"
 	if *dump {
-		dir, err := ioutil.TempDir("", "")
+		dir, err := os.MkdirTemp("", "")
 		if err != nil {
 			tb.Fatal(err)
 		}

@@ -48,7 +48,8 @@ func TestDialService_CreateDial(t *testing.T) {
 		}
 
 		// Ensure membership for owner automatically created.
-		if _, n, err := sqlite.NewDialMembershipService(db).FindDialMemberships(ctx0, wtf.DialMembershipFilter{DialID: &dial.ID}); err != nil {
+		if _, n, err := sqlite.NewDialMembershipService(db).
+			FindDialMemberships(ctx0, wtf.DialMembershipFilter{DialID: &dial.ID}); err != nil {
 			t.Fatal(err)
 		} else if n != 1 {
 			t.Fatal("expected owner membership auto-creation")
@@ -59,7 +60,12 @@ func TestDialService_CreateDial(t *testing.T) {
 	t.Run("ErrNameRequired", func(t *testing.T) {
 		db := MustOpenDB(t)
 		defer MustCloseDB(t, db)
-		_, ctx0 := MustCreateUser(t, context.Background(), db, &wtf.User{Name: "jane", Email: "jane@gmail.com"})
+		_, ctx0 := MustCreateUser(
+			t,
+			context.Background(),
+			db,
+			&wtf.User{Name: "jane", Email: "jane@gmail.com"},
+		)
 
 		if err := sqlite.NewDialService(db).CreateDial(ctx0, &wtf.Dial{}); err == nil {
 			t.Fatal("expected error")
@@ -72,11 +78,18 @@ func TestDialService_CreateDial(t *testing.T) {
 	t.Run("ErrNameTooLong", func(t *testing.T) {
 		db := MustOpenDB(t)
 		defer MustCloseDB(t, db)
-		_, ctx0 := MustCreateUser(t, context.Background(), db, &wtf.User{Name: "jane", Email: "jane@gmail.com"})
+		_, ctx0 := MustCreateUser(
+			t,
+			context.Background(),
+			db,
+			&wtf.User{Name: "jane", Email: "jane@gmail.com"},
+		)
 
-		if err := sqlite.NewDialService(db).CreateDial(ctx0, &wtf.Dial{Name: strings.Repeat("X", wtf.MaxDialNameLen+1)}); err == nil {
+		if err := sqlite.NewDialService(db).
+			CreateDial(ctx0, &wtf.Dial{Name: strings.Repeat("X", wtf.MaxDialNameLen+1)}); err == nil {
 			t.Fatal("expected error")
-		} else if wtf.ErrorCode(err) != wtf.EINVALID || wtf.ErrorMessage(err) != "Dial name too long." {
+		} else if wtf.ErrorCode(err) != wtf.EINVALID ||
+			wtf.ErrorMessage(err) != "Dial name too long." {
 			t.Fatal(err)
 		}
 	})
@@ -85,9 +98,11 @@ func TestDialService_CreateDial(t *testing.T) {
 	t.Run("ErrUserRequired", func(t *testing.T) {
 		db := MustOpenDB(t)
 		defer MustCloseDB(t, db)
-		if err := sqlite.NewDialService(db).CreateDial(context.Background(), &wtf.Dial{}); err == nil {
+		if err := sqlite.NewDialService(db).
+			CreateDial(context.Background(), &wtf.Dial{}); err == nil {
 			t.Fatal("expected error")
-		} else if wtf.ErrorCode(err) != wtf.EUNAUTHORIZED || wtf.ErrorMessage(err) != "You must be logged in to create a dial." {
+		} else if wtf.ErrorCode(err) != wtf.EUNAUTHORIZED ||
+			wtf.ErrorMessage(err) != "You must be logged in to create a dial." {
 			t.Fatal(err)
 		}
 	})
@@ -161,7 +176,12 @@ func TestDialService_FindDials(t *testing.T) {
 
 		dial0 := MustCreateDial(t, ctx0, db, &wtf.Dial{Name: "dial0"})
 		MustCreateDial(t, ctx0, db, &wtf.Dial{Name: "dial1"})
-		MustCreateDialMembership(t, ctx1, db, &wtf.DialMembership{DialID: dial0.ID, UserID: user1.ID})
+		MustCreateDialMembership(
+			t,
+			ctx1,
+			db,
+			&wtf.DialMembership{DialID: dial0.ID, UserID: user1.ID},
+		)
 
 		s := sqlite.NewDialService(db)
 		if a, n, err := s.FindDials(ctx1, wtf.DialFilter{}); err != nil {
@@ -187,9 +207,14 @@ func TestDialService_FindDials(t *testing.T) {
 		MustCreateDial(t, ctx0, db, &wtf.Dial{Name: "dial1"})
 
 		s := sqlite.NewDialService(db)
-		if a, n, err := s.FindDials(context.Background(), wtf.DialFilter{InviteCode: &dial0.InviteCode}); err != nil {
+		if a, n, err := s.FindDials(
+			context.Background(),
+			wtf.DialFilter{InviteCode: &dial0.InviteCode},
+		); err != nil {
 			t.Fatal(err)
-		} else if got, want := len(a), 1; got != want {
+		} else if got, want := len(
+			a,
+		), 1; got != want {
 			t.Fatalf("len=%v, want %v", got, want)
 		} else if got, want := a[0].Name, "dial0"; got != want {
 			t.Fatalf("[0]=%v, want %v", got, want)
@@ -206,7 +231,12 @@ func TestDialService_DeleteDial(t *testing.T) {
 		defer MustCloseDB(t, db)
 		s := sqlite.NewDialService(db)
 
-		_, ctx0 := MustCreateUser(t, context.Background(), db, &wtf.User{Name: "jane", Email: "jane@gmail.com"})
+		_, ctx0 := MustCreateUser(
+			t,
+			context.Background(),
+			db,
+			&wtf.User{Name: "jane", Email: "jane@gmail.com"},
+		)
 		dial := MustCreateDial(t, ctx0, db, &wtf.Dial{Name: "NAME"})
 
 		if err := s.DeleteDial(ctx0, dial.ID); err != nil {

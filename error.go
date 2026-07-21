@@ -42,10 +42,9 @@ func (e *Error) Error() string {
 // ErrorCode unwraps an application error and returns its code.
 // Non-application errors always return EINTERNAL.
 func ErrorCode(err error) string {
-	var e *Error
 	if err == nil {
 		return ""
-	} else if errors.As(err, &e) {
+	} else if e, ok := errors.AsType[*Error](err); ok {
 		return e.Code
 	}
 	return EINTERNAL
@@ -54,17 +53,16 @@ func ErrorCode(err error) string {
 // ErrorMessage unwraps an application error and returns its message.
 // Non-application errors always return "Internal error".
 func ErrorMessage(err error) string {
-	var e *Error
 	if err == nil {
 		return ""
-	} else if errors.As(err, &e) {
+	} else if e, ok := errors.AsType[*Error](err); ok {
 		return e.Message
 	}
 	return "Internal error."
 }
 
 // Errorf is a helper function to return an Error with a given code and formatted message.
-func Errorf(code string, format string, args ...interface{}) *Error {
+func Errorf(code string, format string, args ...any) *Error {
 	return &Error{
 		Code:    code,
 		Message: fmt.Sprintf(format, args...),

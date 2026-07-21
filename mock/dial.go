@@ -24,7 +24,10 @@ func (s *DialService) FindDialByID(ctx context.Context, id int) (*wtf.Dial, erro
 	return s.FindDialByIDFn(ctx, id)
 }
 
-func (s *DialService) FindDials(ctx context.Context, filter wtf.DialFilter) ([]*wtf.Dial, int, error) {
+func (s *DialService) FindDials(
+	ctx context.Context,
+	filter wtf.DialFilter,
+) ([]*wtf.Dial, int, error) {
 	return s.FindDialsFn(ctx, filter)
 }
 
@@ -32,7 +35,11 @@ func (s *DialService) CreateDial(ctx context.Context, dial *wtf.Dial) error {
 	return s.CreateDialFn(ctx, dial)
 }
 
-func (s *DialService) UpdateDial(ctx context.Context, id int, upd wtf.DialUpdate) (*wtf.Dial, error) {
+func (s *DialService) UpdateDial(
+	ctx context.Context,
+	id int,
+	upd wtf.DialUpdate,
+) (*wtf.Dial, error) {
 	return s.UpdateDialFn(ctx, id, upd)
 }
 
@@ -44,6 +51,10 @@ func (s *DialService) SetDialMembershipValue(ctx context.Context, dialID, value 
 	return s.SetDialMembershipValueFn(ctx, dialID, value)
 }
 
-func (s *DialService) AverageDialValueReport(ctx context.Context, start, end time.Time, interval time.Duration) (*wtf.DialValueReport, error) {
+func (s *DialService) AverageDialValueReport(
+	ctx context.Context,
+	start, end time.Time,
+	interval time.Duration,
+) (*wtf.DialValueReport, error) {
 	return s.AverageDialValueReportFn(ctx, start, end, interval)
 }

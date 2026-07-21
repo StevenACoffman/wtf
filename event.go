@@ -19,7 +19,7 @@ type Event struct {
 	Type string `json:"type"`
 
 	// The actual data from the event. See related payload types below.
-	Payload interface{} `json:"payload"`
+	Payload any `json:"payload"`
 }
 
 // DialValueChangedPayload represents the payload for an Event object with a
@@ -54,7 +54,7 @@ type EventService interface {
 }
 
 // NopEventService returns an event service that does nothing.
-func NopEventService() EventService { return &nopEventService{} }
+func NopEventService() *nopEventService { return &nopEventService{} }
 
 type nopEventService struct{}
 

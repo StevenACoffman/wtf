@@ -75,20 +75,20 @@ type AuthService interface {
 	// Returns ENOTFOUND if ID does not exist.
 	FindAuthByID(ctx context.Context, id int) (*Auth, error)
 
-	// Retrieves authentication objects based on a filter. Also returns the
-	// total number of objects that match the filter. This may differ from the
-	// returned object count if the Limit field is set.
+	// Retrieves authentication objects based on a filter. Also returns the total
+	// number of objects that match the filter. This may differ from the number
+	// of returned objects if the "Limit" field is set.
 	FindAuths(ctx context.Context, filter AuthFilter) ([]*Auth, int, error)
 
-	// Creates a new authentication object If a User is attached to auth, then
-	// the auth object is linked to an existing user. Otherwise a new user
-	// object is created.
+	// Creates a new authentication object. If a User is attached to auth, then
+	// the auth object is linked to an existing user. Otherwise a new user object
+	// is created.
 	//
 	// On success, the auth.ID is set to the new authentication ID.
 	CreateAuth(ctx context.Context, auth *Auth) error
 
-	// Permanently deletes an authentication object from the system by ID.
-	// The parent user object is not removed.
+	// Permanently deletes an authentication object from the system by ID. The
+	// parent user object is not removed.
 	DeleteAuth(ctx context.Context, id int) error
 }
 

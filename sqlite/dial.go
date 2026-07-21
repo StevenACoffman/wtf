@@ -49,7 +49,10 @@ func (s *DialService) FindDialByID(ctx context.Context, id int) (*wtf.Dial, erro
 //
 // Also returns a count of total matching dials which may different from the
 // number of returned dials if the  "Limit" field is set.
-func (s *DialService) FindDials(ctx context.Context, filter wtf.DialFilter) ([]*wtf.Dial, int, error) {
+func (s *DialService) FindDials(
+	ctx context.Context,
+	filter wtf.DialFilter,
+) ([]*wtf.Dial, int, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, 0, err
@@ -95,7 +98,11 @@ func (s *DialService) CreateDial(ctx context.Context, dial *wtf.Dial) error {
 //
 // Returns ENOTFOUND if dial does not exist. Returns EUNAUTHORIZED if user
 // is not the dial owner.
-func (s *DialService) UpdateDial(ctx context.Context, id int, upd wtf.DialUpdate) (*wtf.Dial, error) {
+func (s *DialService) UpdateDial(
+	ctx context.Context,
+	id int,
+	upd wtf.DialUpdate,
+) (*wtf.Dial, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -155,7 +162,12 @@ func (s *DialService) SetDialMembershipValue(ctx context.Context, dialID, value 
 	}
 
 	// Update value on membership.
-	if _, err := updateDialMembership(ctx, tx, memberships[0].ID, wtf.DialMembershipUpdate{Value: &value}); err != nil {
+	if _, err := updateDialMembership(
+		ctx,
+		tx,
+		memberships[0].ID,
+		wtf.DialMembershipUpdate{Value: &value},
+	); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -200,7 +212,11 @@ func (s *DialService) DialValues(ctx context.Context, id int) ([]int, error) {
 // all dials that the user is a member of. Average values are computed
 // between start & end time and are slotted into given intervals. The
 // minimum interval size is one minute.
-func (s *DialService) AverageDialValueReport(ctx context.Context, start, end time.Time, interval time.Duration) (*wtf.DialValueReport, error) {
+func (s *DialService) AverageDialValueReport(
+	ctx context.Context,
+	start, end time.Time,
+	interval time.Duration,
+) (*wtf.DialValueReport, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -234,7 +250,7 @@ func (s *DialService) AverageDialValueReport(ctx context.Context, start, end tim
 	}
 
 	// Compute average for each slot.
-	for i := 0; i < slotN; i++ {
+	for i := range slotN {
 		var avg int
 		if len(dials) != 0 {
 			var sum int
@@ -273,7 +289,8 @@ func findDialByID(ctx context.Context, tx *Tx, id int) (*wtf.Dial, error) {
 // otherwise we would just use those.
 func checkDialExists(ctx context.Context, tx *Tx, id int) error {
 	var n int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM dials WHERE id = ?`, id).Scan(&n); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM dials WHERE id = ?`, id).
+		Scan(&n); err != nil {
 		return FormatError(err)
 	} else if n == 0 {
 		return &wtf.Error{Code: wtf.ENOTFOUND, Message: "Dial not found."}
@@ -283,10 +300,14 @@ func checkDialExists(ctx context.Context, tx *Tx, id int) error {
 
 // findDials retrieves a list of matching dials. Also returns a total matching
 // count which may different from the number of results if filter.Limit is set.
-func findDials(ctx context.Context, tx *Tx, filter wtf.DialFilter) (_ []*wtf.Dial, n int, err error) {
+func findDials(
+	ctx context.Context,
+	tx *Tx,
+	filter wtf.DialFilter,
+) (_ []*wtf.Dial, n int, err error) {
 	// Build WHERE clause. Each part of the WHERE clause is AND-ed together.
 	// Values are appended to an arg list to avoid SQL injection.
-	where, args := []string{"1 = 1"}, []interface{}{}
+	where, args := []string{"1 = 1"}, []any{}
 	if v := filter.ID; v != nil {
 		where, args = append(where, "id = ?"), append(args, *v)
 	}
@@ -480,7 +501,8 @@ func deleteDial(ctx context.Context, tx *Tx, id int) error {
 func refreshDialValue(ctx context.Context, tx *Tx, id int) error {
 	// Fetch current dial value.
 	var oldValue int
-	if err := tx.QueryRowContext(ctx, `SELECT value FROM dials WHERE id = ? `, id).Scan(&oldValue); err == sql.ErrNoRows {
+	if err := tx.QueryRowContext(ctx, `SELECT value FROM dials WHERE id = ? `, id).
+		Scan(&oldValue); err == sql.ErrNoRows {
 		return nil // no dial, skip
 	} else if err != nil {
 		return FormatError(err)
@@ -563,7 +585,13 @@ func insertDialValue(ctx context.Context, tx *Tx, id int, value int, timestamp t
 // previous value.
 //
 // There's probably a fancier way to do this in SQL but this was pretty easy.
-func findDialValueSlotsBetween(ctx context.Context, tx *Tx, id int, start, end time.Time, interval time.Duration) ([]int, error) {
+func findDialValueSlotsBetween(
+	ctx context.Context,
+	tx *Tx,
+	id int,
+	start, end time.Time,
+	interval time.Duration,
+) ([]int, error) {
 	values := make([]int, end.Sub(start)/interval)
 	if len(values) == 0 {
 		return values, nil

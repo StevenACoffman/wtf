@@ -69,7 +69,12 @@ func MustCloseServer(tb testing.TB, s *Server) {
 
 // MustNewRequest creates a new HTTP request using the server's base URL and
 // attaching a user session based on the context.
-func (s *Server) MustNewRequest(tb testing.TB, ctx context.Context, method, url string, body io.Reader) *http.Request {
+func (s *Server) MustNewRequest(
+	tb testing.TB,
+	ctx context.Context,
+	method, url string,
+	body io.Reader,
+) *http.Request {
 	tb.Helper()
 
 	// Create new net/http request with server's base URL.

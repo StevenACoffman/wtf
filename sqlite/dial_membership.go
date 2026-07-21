@@ -21,7 +21,10 @@ func NewDialMembershipService(db *DB) *DialMembershipService {
 // FindDialMembershipByID retrieves a membership by ID along with the associated
 // dial & user. Returns ENOTFOUND if membership does exist or user does not have
 // permission to view it.
-func (s *DialMembershipService) FindDialMembershipByID(ctx context.Context, id int) (*wtf.DialMembership, error) {
+func (s *DialMembershipService) FindDialMembershipByID(
+	ctx context.Context,
+	id int,
+) (*wtf.DialMembership, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -43,7 +46,10 @@ func (s *DialMembershipService) FindDialMembershipByID(ctx context.Context, id i
 //
 // Also returns a count of total matching memberships which may different if
 // "Limit" is specified on the filter.
-func (s *DialMembershipService) FindDialMemberships(ctx context.Context, filter wtf.DialMembershipFilter) ([]*wtf.DialMembership, int, error) {
+func (s *DialMembershipService) FindDialMemberships(
+	ctx context.Context,
+	filter wtf.DialMembershipFilter,
+) ([]*wtf.DialMembership, int, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, 0, err
@@ -68,7 +74,10 @@ func (s *DialMembershipService) FindDialMemberships(ctx context.Context, filter 
 
 // CreateDialMembership creates a new membership on a dial for the current user.
 // Returns EUNAUTHORIZED if there is no current user logged in.
-func (s *DialMembershipService) CreateDialMembership(ctx context.Context, membership *wtf.DialMembership) error {
+func (s *DialMembershipService) CreateDialMembership(
+	ctx context.Context,
+	membership *wtf.DialMembership,
+) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -94,7 +103,11 @@ func (s *DialMembershipService) CreateDialMembership(ctx context.Context, member
 // UpdateDialMembership updates the value of a membership. Only the owner of
 // the membership can update the value. Returns EUNAUTHORIZED if user is not the
 // owner. Returns ENOTFOUND if the membership does not exist.
-func (s *DialMembershipService) UpdateDialMembership(ctx context.Context, id int, upd wtf.DialMembershipUpdate) (*wtf.DialMembership, error) {
+func (s *DialMembershipService) UpdateDialMembership(
+	ctx context.Context,
+	id int,
+	upd wtf.DialMembershipUpdate,
+) (*wtf.DialMembership, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -138,10 +151,14 @@ func findDialMembershipByID(ctx context.Context, tx *Tx, id int) (*wtf.DialMembe
 	return memberships[0], nil
 }
 
-func findDialMemberships(ctx context.Context, tx *Tx, filter wtf.DialMembershipFilter) (_ []*wtf.DialMembership, n int, err error) {
+func findDialMemberships(
+	ctx context.Context,
+	tx *Tx,
+	filter wtf.DialMembershipFilter,
+) (_ []*wtf.DialMembership, n int, err error) {
 	// Build WHERE clause. Each segment of the clause is AND-ed together.
 	// Values are appended to args so we can avoid SQL injection.
-	where, args := []string{"1 = 1"}, []interface{}{}
+	where, args := []string{"1 = 1"}, []any{}
 	if v := filter.ID; v != nil {
 		where, args = append(where, "dm.id = ?"), append(args, *v)
 	}
@@ -284,13 +301,21 @@ func createDialMembership(ctx context.Context, tx *Tx, membership *wtf.DialMembe
 
 // updateDialMembership updates the value of a membership.
 // Returns EUNAUTHORIZED if user is not the membership owner.
-func updateDialMembership(ctx context.Context, tx *Tx, id int, upd wtf.DialMembershipUpdate) (*wtf.DialMembership, error) {
+func updateDialMembership(
+	ctx context.Context,
+	tx *Tx,
+	id int,
+	upd wtf.DialMembershipUpdate,
+) (*wtf.DialMembership, error) {
 	// Fetch current object state. Return error if current user is not owner.
 	membership, err := findDialMembershipByID(ctx, tx, id)
 	if err != nil {
 		return membership, err
 	} else if membership.UserID != wtf.UserIDFromContext(ctx) {
-		return membership, wtf.Errorf(wtf.EUNAUTHORIZED, "You do not have permission to update the dial membership.")
+		return membership, wtf.Errorf(
+			wtf.EUNAUTHORIZED,
+			"You do not have permission to update the dial membership.",
+		)
 	}
 
 	// Save state of membership to compare later in the function.
@@ -362,7 +387,10 @@ func deleteDialMembership(ctx context.Context, tx *Tx, id int) error {
 
 	// Verify user owns membership or parent dial.
 	if membership.UserID != userID && membership.Dial.UserID != userID {
-		return wtf.Errorf(wtf.EUNAUTHORIZED, "You do not have permission to delete the dial membership.")
+		return wtf.Errorf(
+			wtf.EUNAUTHORIZED,
+			"You do not have permission to delete the dial membership.",
+		)
 	}
 
 	// Do not allow dial owner to delete their own membership.
@@ -382,7 +410,11 @@ func deleteDialMembership(ctx context.Context, tx *Tx, id int) error {
 	return nil
 }
 
-func attachDialMembershipAssociations(ctx context.Context, tx *Tx, membership *wtf.DialMembership) (err error) {
+func attachDialMembershipAssociations(
+	ctx context.Context,
+	tx *Tx,
+	membership *wtf.DialMembership,
+) (err error) {
 	if membership.Dial, err = findDialByID(ctx, tx, membership.DialID); err != nil {
 		return fmt.Errorf("attach membership dial: %w", err)
 	} else if membership.User, err = findUserByID(ctx, tx, membership.UserID); err != nil {

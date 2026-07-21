@@ -193,7 +193,12 @@ func TestUserService_FindUsers(t *testing.T) {
 }
 
 // MustCreateUser creates a user in the database. Fatal on error.
-func MustCreateUser(tb testing.TB, ctx context.Context, db *sqlite.DB, user *wtf.User) (*wtf.User, context.Context) {
+func MustCreateUser(
+	tb testing.TB,
+	ctx context.Context,
+	db *sqlite.DB,
+	user *wtf.User,
+) (*wtf.User, context.Context) {
 	tb.Helper()
 	if err := sqlite.NewUserService(db).CreateUser(ctx, user); err != nil {
 		tb.Fatal(err)

@@ -44,7 +44,10 @@ func (s *AuthService) FindAuthByID(ctx context.Context, id int) (*wtf.Auth, erro
 //
 // Also returns the total number of objects that match the filter. This may
 // differ from the returned object count if the Limit field is set.
-func (s *AuthService) FindAuths(ctx context.Context, filter wtf.AuthFilter) ([]*wtf.Auth, int, error) {
+func (s *AuthService) FindAuths(
+	ctx context.Context,
+	filter wtf.AuthFilter,
+) ([]*wtf.Auth, int, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, 0, err
@@ -83,9 +86,20 @@ func (s *AuthService) CreateAuth(ctx context.Context, auth *wtf.Auth) error {
 	// Check to see if the auth already exists for the given source.
 	if other, err := findAuthBySourceID(ctx, tx, auth.Source, auth.SourceID); err == nil {
 		// If an auth already exists for the source user, update with the new tokens.
-		if other, err = updateAuth(ctx, tx, other.ID, auth.AccessToken, auth.RefreshToken, auth.Expiry); err != nil {
+		if other, err = updateAuth(
+			ctx,
+			tx,
+			other.ID,
+			auth.AccessToken,
+			auth.RefreshToken,
+			auth.Expiry,
+		); err != nil {
 			return fmt.Errorf("cannot update auth: id=%d err=%w", other.ID, err)
-		} else if err := attachAuthAssociations(ctx, tx, other); err != nil {
+		} else if err := attachAuthAssociations(
+			ctx,
+			tx,
+			other,
+		); err != nil {
 			return err
 		}
 
@@ -165,13 +179,17 @@ func findAuthBySourceID(ctx context.Context, tx *Tx, source, sourceID string) (*
 
 // findAuths returns a list of auth objects that match a filter. Also returns
 // a total count of matches which may differ from results if filter.Limit is set.
-func findAuths(ctx context.Context, tx *Tx, filter wtf.AuthFilter) (_ []*wtf.Auth, n int, err error) {
+func findAuths(
+	ctx context.Context,
+	tx *Tx,
+	filter wtf.AuthFilter,
+) (_ []*wtf.Auth, n int, err error) {
 	// Build WHERE clause. Each part of the clause is AND-ed together to further
 	// restrict the results. Placeholders are added to "args" and are used
 	// to avoid SQL injection.
 	//
 	// Each filter field is optional.
-	where, args := []string{"1 = 1"}, []interface{}{}
+	where, args := []string{"1 = 1"}, []any{}
 	if v := filter.ID; v != nil {
 		where, args = append(where, "id = ?"), append(args, *v)
 	}
@@ -303,7 +321,13 @@ func createAuth(ctx context.Context, tx *Tx, auth *wtf.Auth) error {
 
 // updateAuth updates tokens & expiry on exist auth object.
 // Returns new state of the auth object.
-func updateAuth(ctx context.Context, tx *Tx, id int, accessToken, refreshToken string, expiry *time.Time) (*wtf.Auth, error) {
+func updateAuth(
+	ctx context.Context,
+	tx *Tx,
+	id int,
+	accessToken, refreshToken string,
+	expiry *time.Time,
+) (*wtf.Auth, error) {
 	// Fetch current object state.
 	auth, err := findAuthByID(ctx, tx, id)
 	if err != nil {

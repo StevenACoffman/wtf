@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"strconv"
@@ -25,23 +26,23 @@ func (c *DialSetCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	if fs.NArg() == 0 {
-		return fmt.Errorf("Dial ID required.")
+		return errors.New("Dial ID required.")
 	} else if fs.NArg() == 1 {
-		return fmt.Errorf("WTF level required.")
+		return errors.New("WTF level required.")
 	} else if fs.NArg() > 2 {
-		return fmt.Errorf("Please only specify the dial ID and WTF level.")
+		return errors.New("Please only specify the dial ID and WTF level.")
 	}
 
 	// Parse the dial ID from the first arg.
 	id, err := strconv.Atoi(fs.Arg(0))
 	if err != nil {
-		return fmt.Errorf("Invalid dial ID.")
+		return errors.New("Invalid dial ID.")
 	}
 
 	// Parse the WTF level from the second arg.
 	value, err := strconv.Atoi(fs.Arg(1))
 	if err != nil {
-		return fmt.Errorf("Invalid WTF level.")
+		return errors.New("Invalid WTF level.")
 	}
 
 	// Load the configuration.

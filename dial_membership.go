@@ -39,9 +39,10 @@ func CanEditDialMembership(ctx context.Context, membership *DialMembership) bool
 func CanDeleteDialMembership(ctx context.Context, membership *DialMembership) bool {
 	userID := UserIDFromContext(ctx)
 	if membership.Dial != nil {
-		if membership.Dial.UserID == membership.UserID {
+		switch membership.Dial.UserID {
+		case membership.UserID:
 			return false // dial owner cannot delete membership
-		} else if membership.Dial.UserID == userID {
+		case userID:
 			return true // dial owner can delete other memberships
 		}
 	}
@@ -64,18 +65,18 @@ func (m *DialMembership) Validate() error {
 // DialMembershipService represents a service for managing dial memberships.
 type DialMembershipService interface {
 	// Retrieves a membership by ID along with the associated dial & user.
-	// Returns ENOTFOUND if membership does exist or user does not have
+	// Returns ENOTFOUND if membership does not exist or user does not have
 	// permission to view it.
 	FindDialMembershipByID(ctx context.Context, id int) (*DialMembership, error)
 
 	// Retrieves a list of matching memberships based on filter. Only returns
 	// memberships that belong to dials that the current user is a member of.
-	// Also returns a count of total matching memberships which may different if
-	// "Limit" is specified on the filter.
+	// Also returns a count of total matching memberships which may differ from
+	// the number of returned memberships if the "Limit" field is set.
 	FindDialMemberships(ctx context.Context, filter DialMembershipFilter) ([]*DialMembership, int, error)
 
 	// Creates a new membership on a dial for the current user. Returns
-	// EUNAUTHORIZED if there is no current user logged in.
+	// ECONFLICT if the user is already a member of the dial.
 	CreateDialMembership(ctx context.Context, membership *DialMembership) error
 
 	// Updates the value of a membership. Only the owner of the membership can
@@ -83,8 +84,10 @@ type DialMembershipService interface {
 	// ENOTFOUND if the membership does not exist.
 	UpdateDialMembership(ctx context.Context, id int, upd DialMembershipUpdate) (*DialMembership, error)
 
-	// Permanently deletes a membership by ID. Only the membership owner and
-	// the parent dial's owner can delete a membership.
+	// Permanently removes a membership by ID. Only the membership owner and the
+	// parent dial's owner can delete a membership. Returns EUNAUTHORIZED if
+	// user is not one of those two people. Returns ENOTFOUND if the membership
+	// does not exist.
 	DeleteDialMembership(ctx context.Context, id int) error
 }
 

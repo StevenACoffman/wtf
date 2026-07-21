@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
 
-	"github.com/benbjohnson/wtf"
-	"github.com/benbjohnson/wtf/http/html"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/benbjohnson/wtf"
+	"github.com/benbjohnson/wtf/http/html"
 )
 
 // Generic HTTP metrics.
@@ -35,7 +35,11 @@ func NewClient(u string) *Client {
 
 // newRequest returns a new HTTP request but adds the current user's API key
 // and sets the accept & content type headers to use JSON.
-func (c *Client) newRequest(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
+func (c *Client) newRequest(
+	ctx context.Context,
+	method, url string,
+	body io.Reader,
+) (*http.Request, error) {
 	// Build new request with base URL.
 	req, err := http.NewRequest(method, c.URL+url, body)
 	if err != nil {
@@ -117,7 +121,7 @@ func parseResponseError(resp *http.Response) error {
 
 	// Read the response body so we can reuse it for the error message if it
 	// fails to decode as JSON.
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -130,9 +134,9 @@ func parseResponseError(resp *http.Response) error {
 		if message == "" {
 			message = "Empty response from server."
 		}
-		return wtf.Errorf(FromErrorStatusCode(resp.StatusCode), message)
+		return wtf.Errorf(FromErrorStatusCode(resp.StatusCode), "%s", message)
 	}
-	return wtf.Errorf(FromErrorStatusCode(resp.StatusCode), errorResponse.Error)
+	return wtf.Errorf(FromErrorStatusCode(resp.StatusCode), "%s", errorResponse.Error)
 }
 
 // LogError logs an error with the HTTP route information.

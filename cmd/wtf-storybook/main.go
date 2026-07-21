@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/hashfs"
+
 	"github.com/benbjohnson/wtf"
 	"github.com/benbjohnson/wtf/http/assets"
 	"github.com/benbjohnson/wtf/http/html"
@@ -19,7 +21,7 @@ import (
 // main is the entry point to our application binary. However, it has some poor
 // usability so we mainly use it to delegate out to our run() function.
 func main() {
-	if err := run(context.Background(), os.Args[1:]); err == flag.ErrHelp {
+	if err := run(context.Background(), os.Args[1:]); errors.Is(err, flag.ErrHelp) {
 		os.Exit(1)
 	} else if err != nil {
 		fmt.Fprintln(os.Stderr, err)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"strconv"
@@ -23,15 +24,15 @@ func (c *DialMembersCommand) Run(ctx context.Context, args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	} else if fs.NArg() == 0 {
-		return fmt.Errorf("Dial ID required.")
+		return errors.New("Dial ID required.")
 	} else if fs.NArg() > 1 {
-		return fmt.Errorf("Only one dial ID allowed.")
+		return errors.New("Only one dial ID allowed.")
 	}
 
 	// Parse dial ID from first arg.
 	id, err := strconv.Atoi(fs.Arg(0))
 	if err != nil {
-		return fmt.Errorf("Invalid dial ID.")
+		return errors.New("Invalid dial ID.")
 	}
 
 	// Load configuration file.

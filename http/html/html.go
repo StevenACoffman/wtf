@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"net/url"
+	"strconv"
 
 	"github.com/benbjohnson/wtf"
 	"github.com/benbjohnson/wtf/http/assets"
@@ -108,7 +109,7 @@ func (r *Pagination) pageURL(page int) string {
 	}
 
 	q := r.URL.Query()
-	q.Set("offset", fmt.Sprint((page-1)*r.Limit))
+	q.Set("offset", strconv.Itoa((page-1)*r.Limit))
 	u := url.URL{Path: r.URL.Path, RawQuery: q.Encode()}
 	return u.String()
 }
@@ -153,7 +154,7 @@ func (r *WTFBadge) Render(ctx context.Context, w io.Writer) {
 	fmt.Fprint(w, `</span>`)
 }
 
-func marshalJSONTo(w io.Writer, v interface{}) {
+func marshalJSONTo(w io.Writer, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 

@@ -11,7 +11,7 @@ var (
 )
 
 // ReportError notifies an external service of errors. No-op by default.
-var ReportError = func(ctx context.Context, err error, args ...interface{}) {}
+var ReportError = func(ctx context.Context, err error, args ...any) {}
 
 // ReportPanic notifies an external service of panics. No-op by default.
-var ReportPanic = func(err interface{}) {}
+var ReportPanic = func(err any) {}

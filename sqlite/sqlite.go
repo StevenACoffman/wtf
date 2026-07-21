@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -13,10 +14,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/benbjohnson/wtf"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/benbjohnson/wtf"
 )
 
 // Database metrics.
@@ -73,12 +75,12 @@ func NewDB(dsn string) *DB {
 func (db *DB) Open() (err error) {
 	// Ensure a DSN is set before attempting to open the database.
 	if db.DSN == "" {
-		return fmt.Errorf("dsn required")
+		return errors.New("dsn required")
 	}
 
 	// Make the parent directory unless using an in-memory db.
 	if db.DSN != ":memory:" {
-		if err := os.MkdirAll(filepath.Dir(db.DSN), 0700); err != nil {
+		if err := os.MkdirAll(filepath.Dir(db.DSN), 0o700); err != nil {
 			return err
 		}
 	}
@@ -122,7 +124,9 @@ func (db *DB) Open() (err error) {
 // migrations.
 func (db *DB) migrate() error {
 	// Ensure the 'migrations' table exists so we don't duplicate migrations.
-	if _, err := db.db.Exec(`CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY);`); err != nil {
+	if _, err := db.db.Exec(
+		`CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY);`,
+	); err != nil {
 		return fmt.Errorf("cannot create migrations table: %w", err)
 	}
 
@@ -154,7 +158,8 @@ func (db *DB) migrateFile(name string) error {
 
 	// Ensure migration has not already been run.
 	var n int
-	if err := tx.QueryRow(`SELECT COUNT(*) FROM migrations WHERE name = ?`, name).Scan(&n); err != nil {
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM migrations WHERE name = ?`, name).
+		Scan(&n); err != nil {
 		return err
 	} else if n != 0 {
 		return nil // already run migration, skip
@@ -241,7 +246,8 @@ func (db *DB) updateStats(ctx context.Context) error {
 	}
 	dialCountGauge.Set(float64(n))
 
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM dial_memberships;`).Scan(&n); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM dial_memberships;`).
+		Scan(&n); err != nil {
 		return fmt.Errorf("dial membership count: %w", err)
 	}
 	dialMembershipCountGauge.Set(float64(n))
@@ -261,7 +267,7 @@ type Tx struct {
 type NullTime time.Time
 
 // Scan reads a time value from the database.
-func (n *NullTime) Scan(value interface{}) error {
+func (n *NullTime) Scan(value any) error {
 	if value == nil {
 		*(*time.Time)(n) = time.Time{}
 		return nil

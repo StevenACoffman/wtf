@@ -81,19 +81,19 @@ func CanEditDial(ctx context.Context, dial *Dial) bool {
 
 // DialService represents a service for managing dials.
 type DialService interface {
-	// Retrieves a single dial by ID along with associated memberships. Only
-	// the dial owner & members can see a dial. Returns ENOTFOUND if dial does
-	// not exist or user does not have permission to view it.
+	// Retrieves a single dial by ID along with associated memberships. Only the
+	// dial owner & members can see a dial. Returns ENOTFOUND if dial does not
+	// exist or user does not have permission to view it.
 	FindDialByID(ctx context.Context, id int) (*Dial, error)
 
-	// Retrieves a list of dials based on a filter. Only returns dials that
-	// the user owns or is a member of. Also returns a count of total matching
-	// dials which may different from the number of returned dials if the
-	// "Limit" field is set.
+	// Retrieves a list of dials based on a filter. Only returns dials that the
+	// user owns or is a member of. Also returns a count of total matching dials
+	// which may differ from the number of returned dials if the "Limit" field
+	// is set.
 	FindDials(ctx context.Context, filter DialFilter) ([]*Dial, int, error)
 
-	// Creates a new dial and assigns the current user as the owner.
-	// The owner will automatically be added as a member of the new dial.
+	// Creates a new dial & assigns the current user as the owner. The owner will
+	// automatically be added as a member of the new dial.
 	CreateDial(ctx context.Context, dial *Dial) error
 
 	// Updates an existing dial by ID. Only the dial owner can update a dial.
@@ -108,17 +108,16 @@ type DialService interface {
 	// is not the dial owner.
 	DeleteDial(ctx context.Context, id int) error
 
-	// Sets the value of the user's membership in a dial. This works the same
-	// as calling UpdateDialMembership() although it doesn't require that the
-	// user know their membership ID. Only the dial ID.
+	// Sets the value of the user's membership in a dial. This works the same as
+	// calling UpdateDialMembership() although it doesn't require that the user
+	// know their membership ID. Only the dial ID.
 	//
 	// Returns ENOTFOUND if the membership does not exist.
 	SetDialMembershipValue(ctx context.Context, dialID, value int) error
 
-	// AverageDialValueReport returns a report of the average dial value across
-	// all dials that the user is a member of. Average values are computed
-	// between start & end time and are slotted into given intervals. The
-	// minimum interval size is one minute.
+	// Returns a report of aggregate dial values for all dials the user is a
+	// member of over a time range. Data points are aggregated to the given
+	// interval.
 	AverageDialValueReport(ctx context.Context, start, end time.Time, interval time.Duration) (*DialValueReport, error)
 }
 
@@ -154,5 +153,9 @@ type DialValueRecord struct {
 // GoString prints a more easily readable representation for debugging.
 // The timestamp field is represented as an RFC 3339 string instead of a pointer.
 func (r *DialValueRecord) GoString() string {
-	return fmt.Sprintf("&wtf.DialValueRecord{Value:%d, Timestamp:%q}", r.Value, r.Timestamp.Format(time.RFC3339))
+	return fmt.Sprintf(
+		"&wtf.DialValueRecord{Value:%d, Timestamp:%q}",
+		r.Value,
+		r.Timestamp.Format(time.RFC3339),
+	)
 }

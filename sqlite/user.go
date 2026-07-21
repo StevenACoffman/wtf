@@ -46,7 +46,10 @@ func (s *UserService) FindUserByID(ctx context.Context, id int) (*wtf.User, erro
 
 // FindUsers retrieves a list of users by filter. Also returns total count of
 // matching users which may differ from returned results if filter.Limit is specified.
-func (s *UserService) FindUsers(ctx context.Context, filter wtf.UserFilter) ([]*wtf.User, int, error) {
+func (s *UserService) FindUsers(
+	ctx context.Context,
+	filter wtf.UserFilter,
+) ([]*wtf.User, int, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, 0, err
@@ -75,7 +78,11 @@ func (s *UserService) CreateUser(ctx context.Context, user *wtf.User) error {
 
 // UpdateUser updates a user object. Returns EUNAUTHORIZED if current user is
 // not the user that is being updated. Returns ENOTFOUND if user does not exist.
-func (s *UserService) UpdateUser(ctx context.Context, id int, upd wtf.UserUpdate) (*wtf.User, error) {
+func (s *UserService) UpdateUser(
+	ctx context.Context,
+	id int,
+	upd wtf.UserUpdate,
+) (*wtf.User, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -136,9 +143,13 @@ func findUserByEmail(ctx context.Context, tx *Tx, email string) (*wtf.User, erro
 
 // findUsers returns a list of users matching a filter. Also returns a count of
 // total matching users which may differ if filter.Limit is set.
-func findUsers(ctx context.Context, tx *Tx, filter wtf.UserFilter) (_ []*wtf.User, n int, err error) {
+func findUsers(
+	ctx context.Context,
+	tx *Tx,
+	filter wtf.UserFilter,
+) (_ []*wtf.User, n int, err error) {
 	// Build WHERE clause.
-	where, args := []string{"1 = 1"}, []interface{}{}
+	where, args := []string{"1 = 1"}, []any{}
 	if v := filter.ID; v != nil {
 		where, args = append(where, "id = ?"), append(args, *v)
 	}

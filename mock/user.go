@@ -20,7 +20,10 @@ func (s *UserService) FindUserByID(ctx context.Context, id int) (*wtf.User, erro
 	return s.FindUserByIDFn(ctx, id)
 }
 
-func (s *UserService) FindUsers(ctx context.Context, filter wtf.UserFilter) ([]*wtf.User, int, error) {
+func (s *UserService) FindUsers(
+	ctx context.Context,
+	filter wtf.UserFilter,
+) ([]*wtf.User, int, error) {
 	return s.FindUsersFn(ctx, filter)
 }
 
@@ -28,7 +31,11 @@ func (s *UserService) CreateUser(ctx context.Context, user *wtf.User) error {
 	return s.CreateUserFn(ctx, user)
 }
 
-func (s *UserService) UpdateUser(ctx context.Context, id int, upd wtf.UserUpdate) (*wtf.User, error) {
+func (s *UserService) UpdateUser(
+	ctx context.Context,
+	id int,
+	upd wtf.UserUpdate,
+) (*wtf.User, error) {
 	return s.UpdateUserFn(ctx, id, upd)
 }
 

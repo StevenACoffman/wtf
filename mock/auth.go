@@ -19,7 +19,10 @@ func (s *AuthService) FindAuthByID(ctx context.Context, id int) (*wtf.Auth, erro
 	return s.FindAuthByIDFn(ctx, id)
 }
 
-func (s *AuthService) FindAuths(ctx context.Context, filter wtf.AuthFilter) ([]*wtf.Auth, int, error) {
+func (s *AuthService) FindAuths(
+	ctx context.Context,
+	filter wtf.AuthFilter,
+) ([]*wtf.Auth, int, error) {
 	return s.FindAuthsFn(ctx, filter)
 }
 

@@ -49,9 +49,12 @@ func TestAuthService_CreateAuth(t *testing.T) {
 		}
 
 		// Fetching user should return auths.
-		if user, err := sqlite.NewUserService(db).FindUserByID(context.Background(), 1); err != nil {
+		if user, err := sqlite.NewUserService(db).
+			FindUserByID(context.Background(), 1); err != nil {
 			t.Fatal(err)
-		} else if len(user.Auths) != 1 {
+		} else if len(
+			user.Auths,
+		) != 1 {
 			t.Fatal("expected auths")
 		} else if auth := user.Auths[0]; auth.ID != 1 {
 			t.Fatalf("unexpected auth: %#v", auth)
@@ -229,7 +232,12 @@ func TestAuthService_FindAuths(t *testing.T) {
 }
 
 // MustCreateAuth creates a auth in the database. Fatal on error.
-func MustCreateAuth(tb testing.TB, ctx context.Context, db *sqlite.DB, auth *wtf.Auth) (*wtf.Auth, context.Context) {
+func MustCreateAuth(
+	tb testing.TB,
+	ctx context.Context,
+	db *sqlite.DB,
+	auth *wtf.Auth,
+) (*wtf.Auth, context.Context) {
 	tb.Helper()
 	if err := sqlite.NewAuthService(db).CreateAuth(ctx, auth); err != nil {
 		tb.Fatal(err)

@@ -101,7 +101,11 @@ func TestDialMembershipService_UpdateDialMembership(t *testing.T) {
 		// membership (0) and the new value (25).
 		newValue := 25
 		var err error
-		if membership, err = s.UpdateDialMembership(ctx1, membership.ID, wtf.DialMembershipUpdate{Value: &newValue}); err != nil {
+		if membership, err = s.UpdateDialMembership(
+			ctx1,
+			membership.ID,
+			wtf.DialMembershipUpdate{Value: &newValue},
+		); err != nil {
 			t.Fatal(err)
 		} else if got, want := membership.Value, 25; got != want {
 			t.Fatalf("Value=%v, want %v", got, want)
@@ -175,9 +179,14 @@ func TestDialMembershipService_UpdateDialMembership(t *testing.T) {
 		})
 
 		newValue := 25
-		if _, err := s.UpdateDialMembership(ctx0, membership.ID, wtf.DialMembershipUpdate{Value: &newValue}); err == nil {
+		if _, err := s.UpdateDialMembership(
+			ctx0,
+			membership.ID,
+			wtf.DialMembershipUpdate{Value: &newValue},
+		); err == nil {
 			t.Fatal("expected error")
-		} else if wtf.ErrorCode(err) != wtf.EUNAUTHORIZED || wtf.ErrorMessage(err) != `You do not have permission to update the dial membership.` {
+		} else if wtf.ErrorCode(err) != wtf.EUNAUTHORIZED ||
+			wtf.ErrorMessage(err) != `You do not have permission to update the dial membership.` {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})
@@ -193,9 +202,14 @@ func TestDialMembershipService_UpdateDialMembership(t *testing.T) {
 		MustCreateDial(t, ctx0, db, &wtf.Dial{Name: "DIAL"})
 
 		newValue := -1
-		if _, err := s.UpdateDialMembership(ctx0, 1, wtf.DialMembershipUpdate{Value: &newValue}); err == nil {
+		if _, err := s.UpdateDialMembership(
+			ctx0,
+			1,
+			wtf.DialMembershipUpdate{Value: &newValue},
+		); err == nil {
 			t.Fatal("expected error")
-		} else if wtf.ErrorCode(err) != wtf.EINVALID || wtf.ErrorMessage(err) != `Dial value must be between 0 & 100.` {
+		} else if wtf.ErrorCode(err) != wtf.EINVALID ||
+			wtf.ErrorMessage(err) != `Dial value must be between 0 & 100.` {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})
@@ -216,8 +230,18 @@ func TestDialMembershipService_FindDialMemberships(t *testing.T) {
 		// Dials will automatically create memberships for the owner.
 		dial0 := MustCreateDial(t, ctx0, db, &wtf.Dial{Name: "DIAL0"})
 		membership0 := MustFindDialMembershipByID(t, ctx0, db, 1)
-		membership1 := MustCreateDialMembership(t, ctx1, db, &wtf.DialMembership{DialID: dial0.ID, Value: 10})
-		membership2 := MustCreateDialMembership(t, ctx2, db, &wtf.DialMembership{DialID: dial0.ID, Value: 20})
+		membership1 := MustCreateDialMembership(
+			t,
+			ctx1,
+			db,
+			&wtf.DialMembership{DialID: dial0.ID, Value: 10},
+		)
+		membership2 := MustCreateDialMembership(
+			t,
+			ctx2,
+			db,
+			&wtf.DialMembership{DialID: dial0.ID, Value: 20},
+		)
 
 		dial1 := MustCreateDial(t, ctx1, db, &wtf.Dial{Name: "DIAL1"})
 		MustCreateDialMembership(t, ctx0, db, &wtf.DialMembership{DialID: dial1.ID, Value: 30})
@@ -286,7 +310,12 @@ func TestDialMembershipService_FindDialMemberships(t *testing.T) {
 		_, ctx0 := MustCreateUser(t, ctx, db, &wtf.User{Name: "jane"})
 		user1, ctx1 := MustCreateUser(t, ctx, db, &wtf.User{Name: "jill"})
 		dial0 := MustCreateDial(t, ctx0, db, &wtf.Dial{Name: "DIAL0"})
-		membership0 := MustCreateDialMembership(t, ctx1, db, &wtf.DialMembership{DialID: dial0.ID, Value: 10})
+		membership0 := MustCreateDialMembership(
+			t,
+			ctx1,
+			db,
+			&wtf.DialMembership{DialID: dial0.ID, Value: 10},
+		)
 
 		a, n, err := s.FindDialMemberships(ctx0, wtf.DialMembershipFilter{UserID: &user1.ID})
 		if err != nil {
@@ -312,7 +341,12 @@ func TestDialMembershipService_DeleteDialMembership(t *testing.T) {
 		_, ctx0 := MustCreateUser(t, ctx, db, &wtf.User{Name: "jane"})
 		_, ctx1 := MustCreateUser(t, ctx, db, &wtf.User{Name: "jim"})
 		dial := MustCreateDial(t, ctx0, db, &wtf.Dial{Name: "DIAL"})
-		membership := MustCreateDialMembership(t, ctx1, db, &wtf.DialMembership{DialID: dial.ID, Value: 50})
+		membership := MustCreateDialMembership(
+			t,
+			ctx1,
+			db,
+			&wtf.DialMembership{DialID: dial.ID, Value: 50},
+		)
 
 		if err := s.DeleteDialMembership(ctx1, membership.ID); err != nil {
 			t.Fatal(err)
@@ -341,7 +375,12 @@ func TestDialMembershipService_DeleteDialMembership(t *testing.T) {
 		_, ctx0 := MustCreateUser(t, ctx, db, &wtf.User{Name: "jane"})
 		_, ctx1 := MustCreateUser(t, ctx, db, &wtf.User{Name: "jim"})
 		dial := MustCreateDial(t, ctx0, db, &wtf.Dial{Name: "DIAL"})
-		membership := MustCreateDialMembership(t, ctx1, db, &wtf.DialMembership{DialID: dial.ID, Value: 50})
+		membership := MustCreateDialMembership(
+			t,
+			ctx1,
+			db,
+			&wtf.DialMembership{DialID: dial.ID, Value: 50},
+		)
 
 		if err := s.DeleteDialMembership(ctx0, membership.ID); err != nil {
 			t.Fatal(err)
@@ -388,7 +427,12 @@ func TestDialMembershipService_DeleteDialMembership(t *testing.T) {
 		_, ctx1 := MustCreateUser(t, ctx, db, &wtf.User{Name: "jim"})
 		_, ctx2 := MustCreateUser(t, ctx, db, &wtf.User{Name: "bob"})
 		dial := MustCreateDial(t, ctx0, db, &wtf.Dial{Name: "DIAL"})
-		membership0 := MustCreateDialMembership(t, ctx1, db, &wtf.DialMembership{DialID: dial.ID, Value: 50})
+		membership0 := MustCreateDialMembership(
+			t,
+			ctx1,
+			db,
+			&wtf.DialMembership{DialID: dial.ID, Value: 50},
+		)
 		MustCreateDialMembership(t, ctx2, db, &wtf.DialMembership{DialID: dial.ID, Value: 50})
 
 		if err := s.DeleteDialMembership(ctx2, membership0.ID); err == nil {
@@ -400,7 +444,12 @@ func TestDialMembershipService_DeleteDialMembership(t *testing.T) {
 }
 
 // MustFindDialMembershipByID finds a membership in the database. Fatal on error.
-func MustFindDialMembershipByID(tb testing.TB, ctx context.Context, db *sqlite.DB, id int) *wtf.DialMembership {
+func MustFindDialMembershipByID(
+	tb testing.TB,
+	ctx context.Context,
+	db *sqlite.DB,
+	id int,
+) *wtf.DialMembership {
 	tb.Helper()
 	membership, err := sqlite.NewDialMembershipService(db).FindDialMembershipByID(ctx, id)
 	if err != nil {
@@ -410,9 +459,15 @@ func MustFindDialMembershipByID(tb testing.TB, ctx context.Context, db *sqlite.D
 }
 
 // MustCreateDialMembership creates a membership in the database. Fatal on error.
-func MustCreateDialMembership(tb testing.TB, ctx context.Context, db *sqlite.DB, membership *wtf.DialMembership) *wtf.DialMembership {
+func MustCreateDialMembership(
+	tb testing.TB,
+	ctx context.Context,
+	db *sqlite.DB,
+	membership *wtf.DialMembership,
+) *wtf.DialMembership {
 	tb.Helper()
-	if err := sqlite.NewDialMembershipService(db).CreateDialMembership(ctx, membership); err != nil {
+	if err := sqlite.NewDialMembershipService(db).
+		CreateDialMembership(ctx, membership); err != nil {
 		tb.Fatal(err)
 	}
 	return membership
@@ -421,7 +476,8 @@ func MustCreateDialMembership(tb testing.TB, ctx context.Context, db *sqlite.DB,
 // MustSetDialMembershipValue updates the membership value. Fatal on error.
 func MustSetDialMembershipValue(tb testing.TB, ctx context.Context, db *sqlite.DB, id, value int) {
 	tb.Helper()
-	if _, err := sqlite.NewDialMembershipService(db).UpdateDialMembership(ctx, id, wtf.DialMembershipUpdate{Value: &value}); err != nil {
+	if _, err := sqlite.NewDialMembershipService(db).
+		UpdateDialMembership(ctx, id, wtf.DialMembershipUpdate{Value: &value}); err != nil {
 		tb.Fatal(err)
 	}
 }
