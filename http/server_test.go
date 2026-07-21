@@ -62,7 +62,7 @@ func MustOpenServer(tb testing.TB) *Server {
 // Fail on error.
 func MustCloseServer(tb testing.TB, s *Server) {
 	tb.Helper()
-	if err := s.Close(); err != nil {
+	if err := s.Close(context.Background()); err != nil {
 		tb.Fatal(err)
 	}
 }

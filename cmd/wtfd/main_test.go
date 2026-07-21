@@ -6,12 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chromedp/cdproto/network"
-	"github.com/chromedp/chromedp"
-
 	"github.com/benbjohnson/wtf"
 	main "github.com/benbjohnson/wtf/cmd/wtfd"
 	"github.com/benbjohnson/wtf/http"
+	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/chromedp"
 )
 
 // MustRunMain is a test helper function that executes Main in a temporary path.
@@ -37,7 +36,7 @@ func MustRunMain(tb testing.TB) *main.Main {
 // MustCloseMain closes the program. Fail on error.
 func MustCloseMain(tb testing.TB, m *main.Main) {
 	tb.Helper()
-	if err := m.Close(); err != nil {
+	if err := m.Close(context.Background()); err != nil {
 		tb.Fatal(err)
 	}
 }

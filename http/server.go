@@ -253,9 +253,13 @@ func (s *Server) openSecureCookie() error {
 	return nil
 }
 
-// Close gracefully shuts down the server.
-func (s *Server) Close() error {
-	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+// Close gracefully shuts down the server, giving outstanding requests up to
+// ShutdownTimeout to finish. It derives the shutdown deadline with
+// context.WithoutCancel so that a caller passing an already-canceled context
+// (e.g. one canceled by a termination signal) still gets a graceful drain
+// rather than an immediate abort.
+func (s *Server) Close(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), ShutdownTimeout)
 	defer cancel()
 	return s.server.Shutdown(ctx)
 }

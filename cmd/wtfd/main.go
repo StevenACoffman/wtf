@@ -12,15 +12,15 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/pelletier/go-toml/v2"
-	"github.com/rollbar/rollbar-go"
+	"syscall"
 
 	"github.com/benbjohnson/wtf"
 	"github.com/benbjohnson/wtf/http"
 	"github.com/benbjohnson/wtf/http/html"
 	"github.com/benbjohnson/wtf/inmem"
 	"github.com/benbjohnson/wtf/sqlite"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/rollbar/rollbar-go"
 )
 
 // Build version, injected during build.
@@ -29,47 +29,64 @@ var (
 	commit  string
 )
 
-// main is the entry point to our application binary. However, it has some poor
-// usability so we mainly use it to delegate out to our Main type.
+// main is the entry point to our application binary. It sets up signal-driven
+// cancellation and delegates all work to run(), keeping os.Exit in main alone
+// so that stop() is always released before the process exits.
 func main() {
+	// Set up signal handling so the program shuts down gracefully on interrupt
+	// (Ctrl-C) as well as on SIGTERM/SIGQUIT, which is how process managers such
+	// as systemd, Docker, and Kubernetes request termination. NotifyContext
+	// cancels ctx when one of these signals arrives.
+	ctx, stop := signal.NotifyContext(context.Background(),
+		os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT,
+	)
+
+	code := run(ctx, os.Args)
+
+	// Release the signal-handler goroutine before exiting. This must happen
+	// before os.Exit, which does not run deferred calls.
+	stop()
+	os.Exit(code)
+}
+
+// run wires up and executes the program, returning a process exit code. It is
+// separated from main so that os.Exit lives in main alone, which keeps run()
+// free of process-lifecycle concerns and testable in isolation.
+func run(ctx context.Context, args []string) int {
 	// Propagate build information to root package to share globally.
 	wtf.Version = strings.TrimPrefix(version, "")
 	wtf.Commit = commit
 
-	// Setup signal handlers.
-	ctx, cancel := context.WithCancel(context.Background())
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	go func() { <-c; cancel() }()
-
 	// Instantiate a new type to represent our application.
-	// This type lets us shared setup code with our end-to-end tests.
+	// This type lets us share setup code with our end-to-end tests.
 	m := NewMain()
 
-	// Parse command line flags & load configuration.
-	if err := m.ParseFlags(ctx, os.Args[1:]); errors.Is(err, flag.ErrHelp) {
-		os.Exit(1)
+	// Parse command line flags & load configuration. A help request is a
+	// successful invocation, so it exits zero.
+	if err := m.ParseFlags(ctx, args[1:]); errors.Is(err, flag.ErrHelp) {
+		return 0
 	} else if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return 1
 	}
 
 	// Execute program.
 	if err := m.Run(ctx); err != nil {
-		m.Close()
+		_ = m.Close(ctx)
 		fmt.Fprintln(os.Stderr, err)
 		wtf.ReportError(ctx, err)
-		os.Exit(1)
+		return 1
 	}
 
-	// Wait for CTRL-C.
+	// Wait for signal-triggered cancellation.
 	<-ctx.Done()
 
 	// Clean up program.
-	if err := m.Close(); err != nil {
+	if err := m.Close(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 // Main represents the program.
@@ -101,9 +118,9 @@ func NewMain() *Main {
 }
 
 // Close gracefully stops the program.
-func (m *Main) Close() error {
+func (m *Main) Close(ctx context.Context) error {
 	if m.HTTPServer != nil {
-		if err := m.HTTPServer.Close(); err != nil {
+		if err := m.HTTPServer.Close(ctx); err != nil {
 			return err
 		}
 	}
