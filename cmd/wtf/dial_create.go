@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 
 	"github.com/benbjohnson/wtf"
 	"github.com/benbjohnson/wtf/http"
@@ -15,7 +16,7 @@ type DialCreateCommand struct {
 }
 
 // Run executes the command.
-func (c *DialCreateCommand) Run(ctx context.Context, args []string) error {
+func (c *DialCreateCommand) Run(ctx context.Context, args []string, stdout io.Writer) error {
 	// Create a flag set with parameters for the dial fields.
 	fs := flag.NewFlagSet("wtf-dial-create", flag.ContinueOnError)
 	name := fs.String("name", "", "dial name")
@@ -41,25 +42,9 @@ func (c *DialCreateCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	// Notify user of their new dial.
-	fmt.Printf("Your %q dial has been created!\n\n", dial.Name)
-	fmt.Printf("Please share this URL to invite others to contribute:\n\n")
-	fmt.Printf("%s\n\n", config.URL+"/invite/"+dial.InviteCode)
+	fmt.Fprintf(stdout, "Your %q dial has been created!\n\n", dial.Name)
+	fmt.Fprint(stdout, "Please share this URL to invite others to contribute:\n\n")
+	fmt.Fprintf(stdout, "%s\n\n", config.URL+"/invite/"+dial.InviteCode)
 
 	return nil
-}
-
-// usage print usage information for the command to STDOUT.
-func (c *DialCreateCommand) usage() {
-	fmt.Println(`
-Create a new dial.
-
-Usage:
-
-	wtf dial create -name "My Dial"
-
-Arguments:
-
-	-name NAME
-	    The name of the dial you are creating. Required.
-`[1:])
 }

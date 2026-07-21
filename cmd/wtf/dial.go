@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -11,7 +12,7 @@ import (
 type DialCommand struct{}
 
 // Run executes the command which delegates to other subcommands.
-func (c *DialCommand) Run(ctx context.Context, args []string) error {
+func (c *DialCommand) Run(ctx context.Context, args []string, stdout io.Writer) error {
 	// Shift off the subcommand name, if available.
 	var cmd string
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
@@ -21,26 +22,26 @@ func (c *DialCommand) Run(ctx context.Context, args []string) error {
 	// Delegete to the appropriate subcommand.
 	switch cmd {
 	case "", "list":
-		return (&DialListCommand{}).Run(ctx, args)
+		return (&DialListCommand{}).Run(ctx, args, stdout)
 	case "create":
-		return (&DialCreateCommand{}).Run(ctx, args)
+		return (&DialCreateCommand{}).Run(ctx, args, stdout)
 	case "delete":
-		return (&DialDeleteCommand{}).Run(ctx, args)
+		return (&DialDeleteCommand{}).Run(ctx, args, stdout)
 	case "members":
-		return (&DialMembersCommand{}).Run(ctx, args)
+		return (&DialMembersCommand{}).Run(ctx, args, stdout)
 	case "set":
-		return (&DialSetCommand{}).Run(ctx, args)
+		return (&DialSetCommand{}).Run(ctx, args, stdout)
 	case "help":
-		c.usage()
+		c.usage(stdout)
 		return flag.ErrHelp
 	default:
 		return fmt.Errorf("wtf dial %s: unknown command", cmd)
 	}
 }
 
-// usage prints the subcommand usage to STDOUT.
-func (c *DialCommand) usage() {
-	fmt.Println(`
+// usage prints the subcommand usage to stdout.
+func (c *DialCommand) usage(stdout io.Writer) {
+	fmt.Fprintln(stdout, `
 Manage WTF dials you own or are a member of.
 
 Usage:

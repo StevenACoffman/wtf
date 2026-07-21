@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"os/user"
@@ -39,7 +40,7 @@ func main() {
 	//
 	// If we have an application error (wtf.Error) then we can just display the
 	// message. If we have any other error, print the raw error message.
-	if err := Run(ctx, os.Args[1:]); errors.Is(err, flag.ErrHelp) {
+	if err := Run(ctx, os.Args[1:], os.Stdout); errors.Is(err, flag.ErrHelp) {
 		os.Exit(0)
 	} else if e, ok := errors.AsType[*wtf.Error](err); ok {
 		fmt.Fprintln(os.Stderr, e.Message)
@@ -50,8 +51,9 @@ func main() {
 	}
 }
 
-// Run executes the main program.
-func Run(ctx context.Context, args []string) error {
+// Run executes the main program. All command output is written to stdout;
+// errors are returned to the caller (main) to print.
+func Run(ctx context.Context, args []string, stdout io.Writer) error {
 	// Shift off subcommand from the argument list, if available.
 	var cmd string
 	if len(args) > 0 {
@@ -61,9 +63,9 @@ func Run(ctx context.Context, args []string) error {
 	// Delegate subcommands to their own Run() methods.
 	switch cmd {
 	case "dial":
-		return (&DialCommand{}).Run(ctx, args)
+		return (&DialCommand{}).Run(ctx, args, stdout)
 	case "", "-h", "help":
-		usage()
+		usage(stdout)
 		return flag.ErrHelp
 	default:
 		return fmt.Errorf("wtf %s: unknown command", cmd)
@@ -71,8 +73,8 @@ func Run(ctx context.Context, args []string) error {
 }
 
 // usage prints the top-level CLI usage message.
-func usage() {
-	fmt.Println(`
+func usage(stdout io.Writer) {
+	fmt.Fprintln(stdout, `
 Command line utility for interacting with the WTF Dial service.
 
 Usage:

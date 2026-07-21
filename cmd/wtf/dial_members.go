@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"strconv"
 
 	"github.com/benbjohnson/wtf"
@@ -17,7 +18,7 @@ type DialMembersCommand struct {
 }
 
 // Run executes the command.
-func (c *DialMembersCommand) Run(ctx context.Context, args []string) error {
+func (c *DialMembersCommand) Run(ctx context.Context, args []string, stdout io.Writer) error {
 	// Create a flag set to read the config path & read the dial ID.
 	fs := flag.NewFlagSet("wtf-dial-members", flag.ContinueOnError)
 	attachConfigFlags(fs, &c.ConfigPath)
@@ -54,7 +55,8 @@ func (c *DialMembersCommand) Run(ctx context.Context, args []string) error {
 
 	// Iterate over membrships and print the name & value.
 	for _, membership := range dial.Memberships {
-		fmt.Printf(
+		fmt.Fprintf(
+			stdout,
 			"%s\t%d\n",
 			membership.User.Name,
 			membership.Value,
@@ -62,15 +64,4 @@ func (c *DialMembersCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	return nil
-}
-
-// usage prints command usage information to STDOUT.
-func (c *DialMembersCommand) usage() {
-	fmt.Println(`
-List members of a dial and their WTF level.
-
-Usage:
-
-	wtf dial members DIAL_ID
-`[1:])
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"strconv"
 
 	"github.com/benbjohnson/wtf"
@@ -17,7 +18,7 @@ type DialSetCommand struct {
 }
 
 // Run executes the command.
-func (c *DialSetCommand) Run(ctx context.Context, args []string) error {
+func (c *DialSetCommand) Run(ctx context.Context, args []string, stdout io.Writer) error {
 	// Create a flag set with parameters for the dial fields.
 	fs := flag.NewFlagSet("wtf-dial-set", flag.ContinueOnError)
 	attachConfigFlags(fs, &c.ConfigPath)
@@ -61,19 +62,7 @@ func (c *DialSetCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	// Notify user of the successful update.
-	fmt.Println("Your WTF level has been updated.")
+	fmt.Fprintln(stdout, "Your WTF level has been updated.")
 
 	return nil
-}
-
-// usage print usage information for the command to STDOUT.
-func (c *DialSetCommand) usage() {
-	fmt.Println(`
-Sets your WTF level for a dial you are a member of.
-
-Usage:
-
-	wtf dial set DIAL_ID WTF_LEVEL
-
-`[1:])
 }

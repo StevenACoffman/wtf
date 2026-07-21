@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 
 	"github.com/benbjohnson/wtf"
 	"github.com/benbjohnson/wtf/http"
@@ -17,7 +18,7 @@ type DialListCommand struct {
 }
 
 // Run executes the command.
-func (c *DialListCommand) Run(ctx context.Context, args []string) error {
+func (c *DialListCommand) Run(ctx context.Context, args []string, stdout io.Writer) error {
 	// Build a flag set to retrieve the config path & verbose flag.
 	fs := flag.NewFlagSet("wtf-dial-list", flag.ContinueOnError)
 	verbose := fs.Bool("v", false, "verbose")
@@ -46,12 +47,13 @@ func (c *DialListCommand) Run(ctx context.Context, args []string) error {
 	for _, dial := range dials {
 		// If we are not in verbose mode, just print the name.
 		if !*verbose {
-			fmt.Println(dial.Name)
+			fmt.Fprintln(stdout, dial.Name)
 			continue
 		}
 
 		// If we are in verbose mode, print a tab-delimited list of fields.
-		fmt.Printf(
+		fmt.Fprintf(
+			stdout,
 			"%d\t%s\t%s\n",
 			dial.ID,
 			dial.Name,
@@ -60,20 +62,4 @@ func (c *DialListCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	return nil
-}
-
-// usage prints command usage information to STDOUT.
-func (c *DialListCommand) usage() {
-	fmt.Println(`
-List dials you are a member of.
-
-Usage:
-
-	wtf dial list
-
-Arguments:
-
-	-v
-	    Enable verbose output.
-`[1:])
 }

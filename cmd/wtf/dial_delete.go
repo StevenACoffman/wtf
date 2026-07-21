@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"strconv"
 
 	"github.com/benbjohnson/wtf"
@@ -17,7 +18,7 @@ type DialDeleteCommand struct {
 }
 
 // Run executes the command.
-func (c *DialDeleteCommand) Run(ctx context.Context, args []string) error {
+func (c *DialDeleteCommand) Run(ctx context.Context, args []string, stdout io.Writer) error {
 	// Create flag set to parse the config path & read the ID.
 	fs := flag.NewFlagSet("wtf-dial-delete", flag.ContinueOnError)
 	attachConfigFlags(fs, &c.ConfigPath)
@@ -51,18 +52,7 @@ func (c *DialDeleteCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	// Notify user that dial is gone.
-	fmt.Printf("Your dial has been deleted.\n")
+	fmt.Fprintln(stdout, "Your dial has been deleted.")
 
 	return nil
-}
-
-// usage prints the command usage information to STDOUT.
-func (c *DialDeleteCommand) usage() {
-	fmt.Println(`
-Delete an existing dial.
-
-Usage:
-
-	wtf dial delete DIAL_ID
-`[1:])
 }
