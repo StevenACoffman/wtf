@@ -34,9 +34,10 @@ var (
 		Help: "Total number of requests by route",
 	}, []string{"method", "path"})
 
-	requestSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "wtf_http_request_seconds",
-		Help: "Total amount of request time by route, in seconds",
+	requestSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "wtf_http_request_seconds",
+		Help:    "Duration of requests by route, in seconds",
+		Buckets: prometheus.DefBuckets,
 	}, []string{"method", "path"})
 )
 
@@ -421,7 +422,7 @@ func trackMetrics(next http.Handler) http.Handler {
 		// Track total time unless it is the WebSocket endpoint for events.
 		if tmpl != "" && tmpl != "/events" {
 			requestCount.WithLabelValues(r.Method, tmpl).Inc()
-			requestSeconds.WithLabelValues(r.Method, tmpl).Add(float64(time.Since(t).Seconds()))
+			requestSeconds.WithLabelValues(r.Method, tmpl).Observe(time.Since(t).Seconds())
 		}
 	})
 }
